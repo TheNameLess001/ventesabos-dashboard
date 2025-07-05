@@ -7,7 +7,7 @@ def show_login():
     with col2:
         try:
             st.image(LOGO_PATH, width=200)
-        except:
+        except Exception:
             st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
     st.markdown('<div style="text-align:center;font-size:2em;font-weight:bold;color:#262730;">Bienvenue sur la BI Suite Fitness Park</div>', unsafe_allow_html=True)
     with st.form("login_form"):
@@ -34,8 +34,8 @@ else:
     st.markdown("<h2 style='text-align:center;'>Sélectionnez une page dans le menu à gauche</h2>", unsafe_allow_html=True)
     st.success("Accès accordé. Utilisez le menu de gauche.")
 
-# Option de déconnexion partout
-if st.session_state["logged"]:
+# Bouton de déconnexion présent sur toutes les pages (effet persistant)
+if st.session_state.get("logged", False):
     if st.sidebar.button("Déconnexion"):
         st.session_state["logged"] = False
         st.rerun()
