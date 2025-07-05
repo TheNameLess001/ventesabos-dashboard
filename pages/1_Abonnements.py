@@ -93,7 +93,7 @@ filtre_offre = st.multiselect("Filtrer par Offre", offres_uniques, offres_unique
 filtre_com = st.multiselect("Filtrer par Commercial", commerciaux_uniques, commerciaux_uniques)
 df = df[df[offres_col].isin(filtre_offre) & df[comm_col].isin(filtre_com)]
 
-tabs = st.tabs(["Vue Club", "Vue Commerciale", "Graphiques", "Inactifs"])
+tabs = st.tabs(["📊 Dashboard Club Recouvrement", "🧑‍💼 Dashboard Commercial", "📊Graphiques", "🔴Inactifs"])
 
 # ===== VUE CLUB =====
 with tabs[0]:
