@@ -99,6 +99,7 @@ with tabs[0]:
         if reglement_col:
             df["Date_Regl"] = pd.to_datetime(df[reglement_col], errors='coerce')
             evolution = df[df["Recouvert"]].groupby(df["Date_Regl"].dt.to_period('M'))[montant_col].sum()
+        if not evolution.empty:
             evolution.plot(kind="bar", figsize=(10,4), color="#3498db")
             plt.ylabel("Montant recouvert (MAD)")
             plt.xlabel("Mois")
@@ -106,6 +107,9 @@ with tabs[0]:
             plt.tight_layout()
             st.pyplot(plt.gcf())
             plt.clf()
+        else:
+            st.info("Aucune donnée à afficher pour l'évolution du recouvrement.")
+
 
         # Export Excel
         excel_data = to_excel({"KPIs Club": kpi_tab, "Evolution": evolution.to_frame("Montant Recouvert")})
