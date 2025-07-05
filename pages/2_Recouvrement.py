@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
 
-# ========== PROTECTION LOGIN ==========
 if "logged" not in st.session_state or not st.session_state["logged"]:
     st.warning("Vous devez vous connecter depuis la page d'accueil.")
     st.stop()
@@ -79,11 +78,6 @@ with tabs[0]:
         col4.metric("💰 Total incidents (MAD)", f"{total_montant:,.0f}")
 
         st.markdown("### KPIs Recouvrement")
-        def color_kpi(val):
-            if val < 50: return 'background-color:#ffdddd;color:#b30000;font-weight:bold;'
-            elif val < 60: return 'background-color:#fff7e6;color:#ff8800;font-weight:bold;'
-            else: return 'background-color:#eaffea;color:#12621e;font-weight:bold;'
-
         kpi_tab = pd.DataFrame({
             "Total recouvré (MAD)": [montant_recouvert],
             "Reste à recouvrir (MAD)": [montant_a_recouvrir],
@@ -92,27 +86,35 @@ with tabs[0]:
             "Nb recouverts": [nb_recouvert],
             "Nb à recouvrir": [nb_a_recouvrir]
         })
-        st.dataframe(kpi_tab.style.applymap(lambda v: color_kpi(v) if isinstance(v, (float,int)) and 'Taux' in kpi_tab.columns[kpi_tab.values[0].tolist().index(v)] else ''))
 
-        # Graph evolution
-        st.markdown("### 📈 Évolution du recouvrement (valeur recouvrée par mois)")
-        if reglement_col:
-            df["Date_Regl"] = pd.to_datetime(df[reglement_col], errors='coerce')
-            evolution = df[df["Recouvert"]].groupby(df["Date_Regl"].dt.to_period('M'))[montant_col].sum()
-        if not evolution.empty:
-            evolution.plot(kind="bar", figsize=(10,4), color="#3498db")
-            plt.ylabel("Montant recouvert (MAD)")
-            plt.xlabel("Mois")
-            plt.title("Evolution du recouvrement")
-            plt.tight_layout()
-            st.pyplot(plt.gcf())
-            plt.clf()
-        else:
-            st.info("Aucune donnée à afficher pour l'évolution du recouvrement.")
+        # Affichage coloré du taux
+        def color_kpi(val, seuil=60):
+            if val < 50: return 'background-color:#ffdddd;color:#b30000;font-weight:bold;'
+            elif val < seuil: return 'background-color:#fff7e6;color:#ff8800;font-weight:bold;'
+            else: return 'background-color:#eaffea;color:#12621e;font-weight:bold;'
+        st.dataframe(kpi_tab.style.applymap(lambda v: color_kpi(v) if isinstance(v, (float,int)) and v<=100 and v>=0 else ''))
 
+        # Pie chart (Camembert)
+        st.markdown("### 🥧 Camembert Recouvert / À recouvrir (quantité)")
+        values = [nb_recouvert, nb_a_recouvrir]
+        labels = ["Recouvert", "À Recouvrir"]
+        colors = ["#37c759", "#ff0000"]
+        fig1, ax1 = plt.subplots(figsize=(5, 5))
+        ax1.pie(values, labels=labels, autopct='%1.1f%%', colors=colors, startangle=90, textprops={'fontsize': 14})
+        ax1.axis('equal')
+        st.pyplot(fig1)
+
+        # Pie chart Montant
+        st.markdown("### 🥧 Camembert Recouvert / À recouvrir (valeur)")
+        values_montant = [montant_recouvert, montant_a_recouvrir]
+        labels_montant = ["Recouvert", "À Recouvrir"]
+        fig2, ax2 = plt.subplots(figsize=(5, 5))
+        ax2.pie(values_montant, labels=labels_montant, autopct='%1.1f%%', colors=colors, startangle=90, textprops={'fontsize': 14})
+        ax2.axis('equal')
+        st.pyplot(fig2)
 
         # Export Excel
-        excel_data = to_excel({"KPIs Club": kpi_tab, "Evolution": evolution.to_frame("Montant Recouvert")})
+        excel_data = to_excel({"KPIs Club": kpi_tab})
         st.download_button(
             label="📥 Télécharger Dashboard Club (Excel)",
             data=base64.b64decode(excel_data),
@@ -157,13 +159,25 @@ with tabs[1]:
         com_tab["Taux (%)"] = 100 * com_tab["Montant_Recouvert"] / com_tab["Montant_Total"].replace(0, np.nan)
         com_tab = com_tab.fillna(0)
 
-        def highlight_taux(val):
+        def color_taux(val):
             if val < 50: return 'background-color:#ffdddd;color:#b30000;font-weight:bold;'
             elif val < 60: return 'background-color:#fff7e6;color:#ff8800;font-weight:bold;'
             else: return 'background-color:#eaffea;color:#12621e;font-weight:bold;'
-        st.dataframe(com_tab.style.applymap(lambda v: highlight_taux(v) if isinstance(v,(float,int)) else ''))
+        st.dataframe(com_tab.style.applymap(lambda v: color_taux(v) if isinstance(v,(float,int)) and v<=100 and v>=0 else ''))
 
-        st.markdown("### 📈 Graphique par commercial (taux de recouvrement)")
+        # Pie chart par commercial (taux)
+        st.markdown("### 🥧 Camembert Recouvert / À recouvrir par commercial (valeur)")
+        for c in com_tab.index:
+            val_rec = com_tab.loc[c, "Montant_Recouvert"]
+            val_a_rec = com_tab.loc[c, "Montant_a_Recouvrir"]
+            figc, axc = plt.subplots(figsize=(3.5,3.5))
+            axc.pie([val_rec, val_a_rec], labels=["Recouvert", "À Recouvrir"], autopct='%1.1f%%', colors=["#37c759","#ff0000"], startangle=90, textprops={'fontsize': 12})
+            axc.axis('equal')
+            st.markdown(f"**{c}**")
+            st.pyplot(figc)
+
+        # Barplot taux par commercial
+        st.markdown("### 📊 Barplot du taux de recouvrement par commercial")
         plt.figure(figsize=(9,4))
         com_tab["Taux (%)"].plot(kind="bar", color=[("#ff0000" if v<50 else "#ff8800" if v<60 else "#37c759") for v in com_tab["Taux (%)"]])
         plt.title("Taux de recouvrement par commercial")
@@ -182,7 +196,7 @@ with tabs[1]:
             file_name="recouvrement_commerciaux.xlsx"
         )
 
-# ===== TAB 3: 2 Rejets Successifs =====
+# ===== TAB 3: 2 Rejets Successifs (identique à version précédente) =====
 with tabs[2]:
     st.subheader("🚨 Détection clients à 2 rejets successifs")
     st.markdown("Importer **deux fichiers exports mensuels consécutifs**. Les clients avec incidents impayés sur les deux mois seront listés.")
@@ -201,13 +215,10 @@ with tabs[2]:
         reglement_col = match_col(df_a.columns, ["Règlement de l'incident", "Reglement", "R"])
         etat_col = match_col(df_a.columns, ["Etat de l'incident", "Etat", "P"])
         id_col = "___ClientID"
-        # Identifiant unique client (nom + prénom)
         df_a[id_col] = df_a[nom_col].astype(str).str.strip().str.upper() + " " + df_a[prenom_col].astype(str).str.strip().str.upper()
         df_b[id_col] = df_b[nom_col].astype(str).str.strip().str.upper() + " " + df_b[prenom_col].astype(str).str.strip().str.upper()
-        # Garde les impayés (incident non réglé, ou état = "Ouvert")
         impayes_a = df_a[(df_a[reglement_col].isna()) | (df_a[etat_col].astype(str).str.upper().str.strip() == "OUVERT")]
         impayes_b = df_b[(df_b[reglement_col].isna()) | (df_b[etat_col].astype(str).str.upper().str.strip() == "OUVERT")]
-        # Cherche clients présents dans les deux impayés
         deux_rejets = pd.merge(
             impayes_a[[id_col, nom_col, prenom_col]].drop_duplicates(),
             impayes_b[[id_col, nom_col, prenom_col]].drop_duplicates(),
@@ -216,7 +227,6 @@ with tabs[2]:
         deux_rejets["Nom complet"] = deux_rejets[nom_col + "_mois2"].astype(str).str.strip() + " " + deux_rejets[prenom_col + "_mois2"].astype(str).str.strip()
         st.markdown(f"**Nombre de clients avec 2 rejets successifs** : {len(deux_rejets)}")
         st.dataframe(deux_rejets[["Nom complet"]])
-        # Export Excel
         output = BytesIO()
         deux_rejets[["Nom complet"]].to_excel(output, index=False)
         output.seek(0)
