@@ -30,6 +30,16 @@ def safe_read_csv(file):
     st.error("Impossible de lire le fichier CSV. Essayez de l'enregistrer à nouveau en UTF-8 ou Excel.")
     st.stop()
 
+def match_col(cols, targets):
+    """Matching exact sans accents ni case ni espaces."""
+    def norm(x): return x.strip().lower().replace('é','e').replace('è','e').replace('ê','e').replace("’","'").replace("_", " ").replace("-", " ")
+    normed = {norm(c):c for c in cols}
+    for t in targets:
+        t_norm = norm(t)
+        if t_norm in normed:
+            return normed[t_norm]
+    return None
+
 file = st.file_uploader("Fichier Ventes (CSV ou Excel)", type=["csv", "xlsx"])
 if not file:
     st.info("Importez un fichier pour démarrer l'analyse.")
@@ -39,12 +49,25 @@ ext = file.name.split('.')[-1]
 df = safe_read_csv(file) if ext == "csv" else pd.read_excel(file, engine="openpyxl")
 df.columns = df.columns.str.strip()
 
-# --- Sélection des colonnes dynamiquement ---
-st.subheader("🛠️ Sélection des colonnes d'analyse")
-col_names = df.columns.tolist()
-offres_col = st.selectbox("Colonne des Offres", options=col_names)
-date_col = st.selectbox("Colonne Date de création", options=col_names)
-comm_col = st.selectbox("Colonne Commercial", options=col_names)
+# -- Auto-matching exact --
+col_candidats_offres = [
+    "Nom de l’offre", "Nom de l'offre", "Offre", "Type d'abonnement", "Produit"
+]
+col_candidats_date = [
+    "Date de création", "Date", "Date d'inscription"
+]
+col_candidats_com = [
+    "Nom du commercial initial", "Commercial", "Prénom du commercial initial", "Vendeur"
+]
+
+offres_col = match_col(df.columns, col_candidats_offres)
+date_col = match_col(df.columns, col_candidats_date)
+comm_col = match_col(df.columns, col_candidats_com)
+
+st.subheader("🛠️ Vérification colonnes (modifiez si besoin)")
+offres_col = st.selectbox("Colonne des Offres", options=df.columns.tolist(), index=df.columns.get_loc(offres_col) if offres_col in df.columns else 0)
+date_col = st.selectbox("Colonne Date de création", options=df.columns.tolist(), index=df.columns.get_loc(date_col) if date_col in df.columns else 0)
+comm_col = st.selectbox("Colonne Commercial", options=df.columns.tolist(), index=df.columns.get_loc(comm_col) if comm_col in df.columns else 0)
 
 # --- Filtres dynamiques ---
 st.subheader("🎛️ Filtres dynamiques")
