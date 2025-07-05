@@ -1,7 +1,5 @@
-# ========== IMPORTS ==========
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
@@ -9,7 +7,7 @@ import datetime
 
 # ========== CONFIG ==========
 st.set_page_config(page_title="VENTESABOS BI SUITE", page_icon="📊", layout="wide")
-LOGO_PATH = "logo_fitnesspark.png"  # <- mets ici le vrai nom de ton logo
+LOGO_PATH = "logo_fitnesspark.png"
 
 # ========== UTILS ==========
 def to_excel(df_dict):
@@ -18,23 +16,28 @@ def to_excel(df_dict):
         for sheet, df in df_dict.items():
             df.to_excel(writer, sheet_name=sheet, index=True)
     output.seek(0)
-    b64 = base64.b64encode(output.read()).decode()
-    return b64
+    return base64.b64encode(output.read()).decode()
+
+def safe_read_csv(file):
+    # Essaye plusieurs encodages
+    for enc in ["utf-8", "cp1252", "latin-1"]:
+        try:
+            file.seek(0)
+            return pd.read_csv(file, encoding=enc, sep=None, engine='python')
+        except Exception:
+            continue
+    st.error("Impossible de lire le fichier CSV. Essayez de l'enregistrer à nouveau en UTF-8 ou Excel.")
+    st.stop()
 
 # ========== LOGIN ==========
 def show_login():
-    st.markdown(
-        """
-        <style>
-        .login-title {text-align: center; font-size: 2em; font-weight: bold; color: #262730; margin-bottom: 0.5em;}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
     col1, col2, col3 = st.columns([2,4,2])
     with col2:
-        st.image(LOGO_PATH, width=210)
-    st.markdown('<div class="login-title">Bienvenue sur le Dashboard Ventes & Recouvrement</div>', unsafe_allow_html=True)
+        try:
+            st.image(LOGO_PATH, width=210)
+        except Exception:
+            st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center;font-size:2em;font-weight:bold;color:#262730;margin-bottom:0.5em;">Bienvenue sur le Dashboard Ventes & Recouvrement</div>', unsafe_allow_html=True)
     with st.form(key="login_form"):
         username = st.text_input("Utilisateur", placeholder="Admin")
         password = st.text_input("Mot de passe", type="password", placeholder="********")
@@ -54,7 +57,6 @@ def show_logout():
         st.session_state["logged"] = False
         st.experimental_rerun()
 
-# ========== HEADER =============
 def show_header():
     st.markdown(
         f"""
@@ -76,28 +78,21 @@ def vue_abos():
         st.info("Importez un fichier de ventes pour démarrer.")
         return
     ext = file.name.split('.')[-1]
-    if ext == "csv":
-        df = pd.read_csv(file, encoding='utf-8', sep=None, engine='python')
-    else:
-        df = pd.read_excel(file, engine="openpyxl")
+    df = safe_read_csv(file) if ext == "csv" else pd.read_excel(file, engine="openpyxl")
     df.columns = df.columns.str.strip()
-
-    offres_col = st.selectbox("Colonne des Offres", options=df.columns.tolist(), index=5)
-    date_col = st.selectbox("Colonne Date de création", options=df.columns.tolist(), index=6)
-    comm_col = st.selectbox("Colonne Commercial", options=df.columns.tolist(), index=11)
-
+    offres_col = st.selectbox("Colonne des Offres", options=df.columns.tolist(), index=min(5, len(df.columns)-1))
+    date_col = st.selectbox("Colonne Date de création", options=df.columns.tolist(), index=min(6, len(df.columns)-1))
+    comm_col = st.selectbox("Colonne Commercial", options=df.columns.tolist(), index=min(11, len(df.columns)-1))
     offres_uniques = df[offres_col].dropna().unique().tolist()
     commerciaux_uniques = df[comm_col].dropna().unique().tolist()
     filtre_offre = st.multiselect("Filtrer par Offre", offres_uniques, offres_uniques)
     filtre_com = st.multiselect("Filtrer par Commercial", commerciaux_uniques, commerciaux_uniques)
     df = df[df[offres_col].isin(filtre_offre) & df[comm_col].isin(filtre_com)]
-
     tabs = st.tabs(["Vue Club", "Vue Commerciale"])
-
     with tabs[0]:
         st.subheader("Tableau Club (quantités)")
         table_club = df.groupby(offres_col).size().to_frame("Quantité").sort_values("Quantité", ascending=False)
-        st.dataframe(table_club.style.highlight_max(axis=0, color='#e1ffe1'))
+        st.dataframe(table_club)
         st.subheader("Ventes par semaine (Club)")
         df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
         table_week = df.groupby(df[date_col].dt.to_period('W'))[offres_col].value_counts().unstack().fillna(0)
@@ -105,7 +100,7 @@ def vue_abos():
     with tabs[1]:
         st.subheader("Tableau Commercial (quantités)")
         table_com = df.groupby(comm_col)[offres_col].value_counts().unstack(fill_value=0)
-        st.dataframe(table_com.style.highlight_max(axis=1, color='#d5e7ff'))
+        st.dataframe(table_com)
         st.subheader("Ventes par semaine (par Commercial)")
         week_com = df.groupby([df[date_col].dt.to_period('W'), comm_col]).size().unstack(fill_value=0)
         st.dataframe(week_com)
@@ -122,17 +117,14 @@ def vue_recouvrement():
     if not recouv_file:
         st.info("Importe un fichier de recouvrement pour afficher les analyses.")
         return
-
-    # Lecture fichier
-    df_recouv = pd.read_csv(recouv_file) if recouv_file.name.endswith('csv') else pd.read_excel(recouv_file)
+    ext = recouv_file.name.split('.')[-1]
+    df_recouv = safe_read_csv(recouv_file) if ext == "csv" else pd.read_excel(recouv_file)
     df_recouv.columns = df_recouv.columns.str.strip()
-
-    montant_col = "Montant de l'incident"         # Colonne M
-    reglement_col = "Règlement de l'incident"     # Colonne R
-    avoir_col = "Règlement avoir de l'incident"   # Colonne S
-    commercial_col = "Prénom du commercial initial" # Colonne X
-
-    # Nettoyage du montant (float ready)
+    montant_col = "Montant de l'incident"
+    reglement_col = "Règlement de l'incident"
+    avoir_col = "Règlement avoir de l'incident"
+    commercial_col = "Prénom du commercial initial"
+    # --- Nettoyage du montant (float ready) ---
     df_recouv[montant_col] = (
         df_recouv[montant_col]
         .astype(str)
@@ -141,18 +133,14 @@ def vue_recouvrement():
         .str.replace("\u202f", "", regex=False)
     )
     df_recouv[montant_col] = pd.to_numeric(df_recouv[montant_col], errors="coerce").fillna(0)
-
     # Statut recouvert = au moins une des 2 colonnes remplie (R ou S)
     df_recouv["Recouvert"] = df_recouv[reglement_col].notna() | df_recouv[avoir_col].notna()
-
-    # GLOBAL CLUB
     total_rejets = len(df_recouv)
     total_montant = df_recouv[montant_col].sum()
     nb_recouvert = df_recouv["Recouvert"].sum()
     montant_recouvert = df_recouv.loc[df_recouv["Recouvert"], montant_col].sum()
     nb_impaye = total_rejets - nb_recouvert
     montant_impaye = total_montant - montant_recouvert
-
     st.markdown("## 📊 Résumé Global Recouvrement (Club)")
     col1, col2, col3 = st.columns(3)
     col1.metric("Total rejets (quantité)", total_rejets)
@@ -161,7 +149,6 @@ def vue_recouvrement():
     col1.metric("Total rejets (valeur)", f"{total_montant:,.0f} MAD")
     col2.metric("Recouvert (valeur)", f"{montant_recouvert:,.0f} MAD")
     col3.metric("À recouvrir (valeur)", f"{montant_impaye:,.0f} MAD")
-
     table_club = pd.DataFrame({
         "Total rejets (quantité)": [total_rejets],
         "Recouvert (quantité)": [nb_recouvert],
@@ -171,7 +158,6 @@ def vue_recouvrement():
         "À recouvrir (valeur)": [montant_impaye],
     })
     st.dataframe(table_club)
-
     st.markdown("## 🧑‍💼 Vue par Commercial initial")
     table_com = df_recouv.groupby(commercial_col).agg(
         Total_Rejets = (montant_col, 'count'),
@@ -182,7 +168,6 @@ def vue_recouvrement():
         Montant_Impaye = (montant_col, lambda x: df_recouv.loc[x.index][~df_recouv.loc[x.index,"Recouvert"]][montant_col].sum()),
     )
     st.dataframe(table_com)
-
     st.markdown("## 📈 Evolution du recouvrement (valeur recouvrée par mois)")
     df_recouv["Date_Regl"] = pd.to_datetime(df_recouv[reglement_col], errors='coerce')
     evolution = df_recouv[df_recouv["Recouvert"]].groupby(df_recouv["Date_Regl"].dt.to_period('M'))[montant_col].sum()
@@ -193,7 +178,6 @@ def vue_recouvrement():
     plt.tight_layout()
     st.pyplot(plt.gcf())
     plt.clf()
-
     export_dict_rcv = {
         "Tableau Club Recouvrement": table_club,
         "Tableau Commerciaux Recouvrement": table_com,
