@@ -159,6 +159,16 @@ with tabs[1]:
             df2[col] = pd.to_numeric(df2[col], errors="coerce").fillna(0)
 
         df2["Recouvert"] = df2[reglement_col].notna() | df2[avoir_col].notna()
+
+        # FILTRE PAR COMMERCIAL
+        commerciaux_uniques = df2[commercial_col].dropna().astype(str).unique().tolist()
+        selected_com = st.multiselect(
+            "Filtrer par commercial",
+            options=commerciaux_uniques,
+            default=commerciaux_uniques
+        )
+        df2 = df2[df2[commercial_col].astype(str).isin(selected_com)]
+
         total_montant = df2[montant_col].sum()
 
         com_tab = df2.groupby(commercial_col).agg(
@@ -189,6 +199,18 @@ with tabs[1]:
                 .applymap(color_taux)
         )
 
+        # Camembert & barplot par commercial
+        st.markdown("### 🥧 Camembert Recouvert / À recouvrir par commercial (valeur)")
+        for c in com_tab.index:
+            val_rec = com_tab.loc[c, "Montant_Recouvert"]
+            val_a_rec = com_tab.loc[c, "Montant_a_Recouvrir"]
+            figc, axc = plt.subplots(figsize=(3.5,3.5))
+            axc.pie([val_rec, val_a_rec], labels=["Recouvert", "À Recouvrir"], autopct=lambda p: fmt_mad(p*(val_rec+val_a_rec)/100), colors=["#37c759","#ff0000"], startangle=90, textprops={'fontsize': 12})
+            axc.axis('equal')
+            st.markdown(f"**{c}**")
+            st.pyplot(figc)
+
+        # Barplot taux par commercial
         st.markdown("### 📊 Barplot du taux de recouvrement par commercial")
         plt.figure(figsize=(9,4))
         com_tab["Taux (%)"].plot(kind="bar", color=[("#ff0000" if v<50 else "#ff8800" if v<60 else "#37c759") for v in com_tab["Taux (%)"]])
@@ -199,8 +221,8 @@ with tabs[1]:
         plt.tight_layout()
         st.pyplot(plt.gcf())
         plt.clf()
-        
-        # Barplot Montant Recouvert par commercial
+
+        # Nouveau barplot : Montant recouvert par commercial
         st.markdown("### 📊 Barplot Montant Recouvert par commercial (MAD)")
         plt.figure(figsize=(9,4))
         bars = plt.bar(com_tab.index, com_tab["Montant_Recouvert"], color="#2d8ee3")
@@ -209,20 +231,19 @@ with tabs[1]:
         plt.ylabel("Montant Recouvert (MAD)")
         plt.xticks(rotation=45)
         plt.tight_layout()
-        # Ajoute les labels de valeur sur chaque barre
         for bar, value in zip(bars, com_tab["Montant_Recouvert"]):
-            plt.text(bar.get_x() + bar.get_width()/2, bar.get_height(), f"{int(value):,} MAD", ha='center', va='bottom', fontsize=10)
+            plt.text(bar.get_x() + bar.get_width()/2, bar.get_height(), fmt_mad(value), ha='center', va='bottom', fontsize=10)
         st.pyplot(plt.gcf())
         plt.clf()
 
-        # Barplot : Nombre de rejets et rejets recouverts par commercial
+        # Barplot nombre de rejets et recouverts par commercial
         st.markdown("### 📊 Barplot Nombre de rejets / rejets recouverts par commercial")
         labels = com_tab.index.astype(str).tolist()
         incidents = com_tab["Nb_Incidents"].values
         recouverts = com_tab["Nb_Recouverts"].values
 
         x = np.arange(len(labels))
-        width = 0.35  # largeur des barres
+        width = 0.35
 
         fig, ax = plt.subplots(figsize=(10,5))
         rects1 = ax.bar(x - width/2, incidents, width, label='Nb rejets', color='#e74c3c')
@@ -235,7 +256,6 @@ with tabs[1]:
         ax.set_xticklabels(labels, rotation=45)
         ax.legend()
 
-        # Affiche la valeur sur chaque barre
         for rect in rects1:
             height = rect.get_height()
             ax.annotate(f'{int(height)}',
