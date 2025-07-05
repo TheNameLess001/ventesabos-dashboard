@@ -215,6 +215,46 @@ with tabs[1]:
         st.pyplot(plt.gcf())
         plt.clf()
 
+        # Barplot : Nombre de rejets et rejets recouverts par commercial
+        st.markdown("### 📊 Barplot Nombre de rejets / rejets recouverts par commercial")
+        labels = com_tab.index.astype(str).tolist()
+        incidents = com_tab["Nb_Incidents"].values
+        recouverts = com_tab["Nb_Recouverts"].values
+
+        x = np.arange(len(labels))
+        width = 0.35  # largeur des barres
+
+        fig, ax = plt.subplots(figsize=(10,5))
+        rects1 = ax.bar(x - width/2, incidents, width, label='Nb rejets', color='#e74c3c')
+        rects2 = ax.bar(x + width/2, recouverts, width, label='Nb recouverts', color='#27ae60')
+
+        ax.set_ylabel('Quantité')
+        ax.set_xlabel('Commercial')
+        ax.set_title('Nombre de rejets & rejets recouverts par commercial')
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=45)
+        ax.legend()
+
+        # Affiche la valeur sur chaque barre
+        for rect in rects1:
+            height = rect.get_height()
+            ax.annotate(f'{int(height)}',
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=9)
+        for rect in rects2:
+            height = rect.get_height()
+            ax.annotate(f'{int(height)}',
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=9)
+
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.clf()
+
         # Export Excel
         com_tab_export = com_tab.copy()
         com_tab_export["Montant_Total"] = com_tab_export["Montant_Total"].apply(fmt_mad)
