@@ -11,6 +11,12 @@ if "logged" not in st.session_state or not st.session_state["logged"]:
 
 st.title("💰 Dashboard Recouvrement Fitness Park")
 
+def fmt_mad(val):
+    try:
+        return f"{val:,.0f} MAD"
+    except:
+        return val
+
 def to_excel(df_dict):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -75,24 +81,28 @@ with tabs[0]:
         col1.metric("🔄 Total incidents", total_rejets)
         col2.metric("✅ Recouverts (Qté)", int(nb_recouvert))
         col3.metric("🕗 À Recouvrir (Qté)", int(nb_a_recouvrir))
-        col4.metric("💰 Total incidents (MAD)", f"{total_montant:,.0f}")
+        col4.metric("💰 Total incidents", fmt_mad(total_montant))
 
         st.markdown("### KPIs Recouvrement")
         kpi_tab = pd.DataFrame({
-            "Total recouvré (MAD)": [montant_recouvert],
-            "Reste à recouvrir (MAD)": [montant_a_recouvrir],
+            "Total recouvré": [montant_recouvert],
+            "Reste à recouvrir": [montant_a_recouvrir],
             "Taux de recouvrement (%)": [taux_recouvrement],
             "Nb incidents": [total_rejets],
             "Nb recouverts": [nb_recouvert],
             "Nb à recouvrir": [nb_a_recouvrir]
         })
 
-        # Affichage coloré du taux
         def color_kpi(val, seuil=60):
-            if val < 50: return 'background-color:#ffdddd;color:#b30000;font-weight:bold;'
-            elif val < seuil: return 'background-color:#fff7e6;color:#ff8800;font-weight:bold;'
-            else: return 'background-color:#eaffea;color:#12621e;font-weight:bold;'
-        st.dataframe(kpi_tab.style.applymap(lambda v: color_kpi(v) if isinstance(v, (float,int)) and v<=100 and v>=0 else ''))
+            if isinstance(val, (float,int)) and val<=100 and val>=0:
+                if val < 50: return 'background-color:#ffdddd;color:#b30000;font-weight:bold;'
+                elif val < seuil: return 'background-color:#fff7e6;color:#ff8800;font-weight:bold;'
+                else: return 'background-color:#eaffea;color:#12621e;font-weight:bold;'
+            return ''
+        st.dataframe(kpi_tab.style
+                     .format({"Total recouvré": fmt_mad, "Reste à recouvrir": fmt_mad, "Taux de recouvrement (%)": "{:,.1f} %"})
+                     .applymap(color_kpi)
+        )
 
         # Pie chart (Camembert)
         st.markdown("### 🥧 Camembert Recouvert / À recouvrir (quantité)")
@@ -109,12 +119,16 @@ with tabs[0]:
         values_montant = [montant_recouvert, montant_a_recouvrir]
         labels_montant = ["Recouvert", "À Recouvrir"]
         fig2, ax2 = plt.subplots(figsize=(5, 5))
-        ax2.pie(values_montant, labels=labels_montant, autopct='%1.1f%%', colors=colors, startangle=90, textprops={'fontsize': 14})
+        ax2.pie(values_montant, labels=labels_montant, autopct=lambda p: fmt_mad(p * total_montant / 100), colors=colors, startangle=90, textprops={'fontsize': 14})
         ax2.axis('equal')
         st.pyplot(fig2)
 
         # Export Excel
-        excel_data = to_excel({"KPIs Club": kpi_tab})
+        kpi_tab_export = kpi_tab.copy()
+        kpi_tab_export["Total recouvré"] = kpi_tab_export["Total recouvré"].apply(fmt_mad)
+        kpi_tab_export["Reste à recouvrir"] = kpi_tab_export["Reste à recouvrir"].apply(fmt_mad)
+        kpi_tab_export["Taux de recouvrement (%)"] = kpi_tab_export["Taux de recouvrement (%)"].apply(lambda x: f"{x:.1f} %")
+        excel_data = to_excel({"KPIs Club": kpi_tab_export})
         st.download_button(
             label="📥 Télécharger Dashboard Club (Excel)",
             data=base64.b64decode(excel_data),
@@ -147,7 +161,6 @@ with tabs[1]:
         df2["Recouvert"] = df2[reglement_col].notna() | df2[avoir_col].notna()
         total_montant = df2[montant_col].sum()
 
-        # KPIs par commercial
         com_tab = df2.groupby(commercial_col).agg(
             Nb_Incidents = (montant_col, 'count'),
             Nb_Recouverts = ("Recouvert", 'sum'),
@@ -160,12 +173,33 @@ with tabs[1]:
         com_tab = com_tab.fillna(0)
 
         def color_taux(val):
-            if val < 50: return 'background-color:#ffdddd;color:#b30000;font-weight:bold;'
-            elif val < 60: return 'background-color:#fff7e6;color:#ff8800;font-weight:bold;'
-            else: return 'background-color:#eaffea;color:#12621e;font-weight:bold;'
-        st.dataframe(com_tab.style.applymap(lambda v: color_taux(v) if isinstance(v,(float,int)) and v<=100 and v>=0 else ''))
+            if isinstance(val, (float,int)) and val<=100 and val>=0:
+                if val < 50: return 'background-color:#ffdddd;color:#b30000;font-weight:bold;'
+                elif val < 60: return 'background-color:#fff7e6;color:#ff8800;font-weight:bold;'
+                else: return 'background-color:#eaffea;color:#12621e;font-weight:bold;'
+            return ''
+        st.dataframe(
+            com_tab.style
+                .format({
+                    "Montant_Total": fmt_mad,
+                    "Montant_Recouvert": fmt_mad,
+                    "Montant_a_Recouvrir": fmt_mad,
+                    "Taux (%)": "{:,.1f} %",
+                })
+                .applymap(color_taux)
+        )
 
-        # Barplot taux par commercial
+        # Camembert & barplot par commercial
+        st.markdown("### 🥧 Camembert Recouvert / À recouvrir par commercial (valeur)")
+        for c in com_tab.index:
+            val_rec = com_tab.loc[c, "Montant_Recouvert"]
+            val_a_rec = com_tab.loc[c, "Montant_a_Recouvrir"]
+            figc, axc = plt.subplots(figsize=(3.5,3.5))
+            axc.pie([val_rec, val_a_rec], labels=["Recouvert", "À Recouvrir"], autopct=lambda p: fmt_mad(p*(val_rec+val_a_rec)/100), colors=["#37c759","#ff0000"], startangle=90, textprops={'fontsize': 12})
+            axc.axis('equal')
+            st.markdown(f"**{c}**")
+            st.pyplot(figc)
+
         st.markdown("### 📊 Barplot du taux de recouvrement par commercial")
         plt.figure(figsize=(9,4))
         com_tab["Taux (%)"].plot(kind="bar", color=[("#ff0000" if v<50 else "#ff8800" if v<60 else "#37c759") for v in com_tab["Taux (%)"]])
@@ -178,7 +212,12 @@ with tabs[1]:
         plt.clf()
 
         # Export Excel
-        excel_data = to_excel({"KPIs Commerciaux": com_tab})
+        com_tab_export = com_tab.copy()
+        com_tab_export["Montant_Total"] = com_tab_export["Montant_Total"].apply(fmt_mad)
+        com_tab_export["Montant_Recouvert"] = com_tab_export["Montant_Recouvert"].apply(fmt_mad)
+        com_tab_export["Montant_a_Recouvrir"] = com_tab_export["Montant_a_Recouvrir"].apply(fmt_mad)
+        com_tab_export["Taux (%)"] = com_tab_export["Taux (%)"].apply(lambda x: f"{x:.1f} %")
+        excel_data = to_excel({"KPIs Commerciaux": com_tab_export})
         st.download_button(
             label="📥 Télécharger Dashboard Commerciaux (Excel)",
             data=base64.b64decode(excel_data),
