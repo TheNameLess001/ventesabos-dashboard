@@ -11,7 +11,7 @@ if "logged" not in st.session_state or not st.session_state["logged"]:
 
 st.title("🏆 ANALYSEUR TBO - Fitness Park")
 
-# Gold branding
+# Gold branding & style onglets
 TBO_GOLD = "#FFD700"
 st.markdown(f"""
     <style>
@@ -21,10 +21,14 @@ st.markdown(f"""
         background-color: {TBO_GOLD};
         color: #222;
         font-weight:bold;
+        border-radius: 10px 10px 0 0;
+        border-bottom: 3px solid #FFBF00;
     }}
     .stTabs [data-baseweb="tab-list"] button {{
         background-color: #f4f4f4;
         color: #222;
+        border-radius: 10px 10px 0 0;
+        margin-right: 2px;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -38,24 +42,23 @@ def to_excel(df_dict):
     return base64.b64encode(output.read()).decode()
 
 def analyze_tbo(file):
-    # Groupes produits
     product_groups = {
         "ABONNEMENTS": [
-            "CDD", "CDD1", "CDD12", "CDIAENG", "CDISENG", 
-            "SEANCEESSAI", "seancedessaie", "VIP", "OffreSummerBody25", 
+            "CDD", "CDD1", "CDD12", "CDIAENG", "CDISENG",
+            "SEANCEESSAI", "seancedessaie", "VIP", "OffreSummerBody25",
             "ULTIMATEEMPLOYE", "HOMEPARK", "1MOFFERT", "EMPLOYE", "REGISTRATION-FEE"
         ],
         "ACCESS+": [
             "ALLACCESS+", "ALLACCESS+BF", "ALLACCESS+YS-cc"
         ],
         "COACHING": [
-            "10PT", "15PT", "10PTPREMIUM", "1PT", 
+            "10PT", "15PT", "10PTPREMIUM", "1PT",
             "DUO15PT", "20PT", "DUO10PT", "SMALLGROUP"
         ],
         "GOODIES": [
-            "CADENAS", "CEINTUREMUSCU", "cordeasauterfpk", 
-            "gantmusculation", "GOURDEFP", "SAC", 
-            "SERVIETTEGRISE", "SERVIETTENOIRE", "SHAKER", 
+            "CADENAS", "CEINTUREMUSCU", "cordeasauterfpk",
+            "gantmusculation", "GOURDEFP", "SAC",
+            "SERVIETTEGRISE", "SERVIETTENOIRE", "SHAKER",
             "sanglecheville"
         ],
         "WATERSTATION": [
@@ -84,7 +87,7 @@ def analyze_tbo(file):
                 product_row = idx - 1 if idx > 0 else 0
                 break
         if product_row is None or value_row is None:
-            return None, None, None, None, "Impossible de trouver les lignes de données dans le fichier Excel."
+            return None, None, None, None, "Impossible de trouver les lignes de données dans le fichier Excel.", None
         products = df.iloc[product_row, 3:]
         values = df.iloc[value_row, 3:]
         turnover_data = {}
@@ -126,9 +129,7 @@ def analyze_tbo(file):
     except Exception as e:
         return None, None, None, None, f"Erreur pendant l'analyse : {str(e)}", None
 
-# ===== MAIN PAGE =====
 tbo_file = st.file_uploader("Importer un fichier TBO (Excel)", type=["xlsx", "xls"])
-
 if not tbo_file:
     st.info("Importez un fichier TBO pour démarrer l'analyse.")
     st.stop()
@@ -138,7 +139,7 @@ if error:
     st.error(error)
     st.stop()
 
-tabs = st.tabs(["⭐Résumé Global", "📜Détails par Groupe", "🚀Export"])
+tabs = st.tabs(["Résumé Global", "Détails par Groupe", "Export"])
 
 # ===== TAB 1 : Résumé Global =====
 with tabs[0]:
@@ -180,6 +181,20 @@ with tabs[1]:
     ]).sort_values("Valeur (DH)", ascending=False)
     st.dataframe(df_detail.style.format({"Valeur (DH)": "{:,.2f} DH"}))
     st.success(f"Total {group_sel}: {group_totals[group_sel]:,.2f} DH")
+
+    # Nouveau : Barplot par produit du groupe sélectionné
+    st.markdown("### 📊 Barplot - Répartition des ventes par produit")
+    plt.figure(figsize=(8, 4))
+    plt.bar(df_detail["Produit"], df_detail["Valeur (DH)"], color="#FFD700")
+    plt.ylabel("Valeur (DH)")
+    plt.xlabel("Produit")
+    plt.title(f"Ventes du groupe {group_sel}")
+    plt.xticks(rotation=45, ha="right", fontsize=10)
+    plt.tight_layout()
+    for idx, row in df_detail.iterrows():
+        plt.text(idx, row["Valeur (DH)"], f"{row['Valeur (DH)']:,.0f}", ha='center', va='bottom', fontsize=9)
+    st.pyplot(plt.gcf())
+    plt.clf()
 
 # ===== TAB 3 : Export =====
 with tabs[2]:
