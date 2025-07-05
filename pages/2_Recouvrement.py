@@ -199,6 +199,21 @@ with tabs[1]:
         plt.tight_layout()
         st.pyplot(plt.gcf())
         plt.clf()
+        
+        # Barplot Montant Recouvert par commercial
+        st.markdown("### 📊 Barplot Montant Recouvert par commercial (MAD)")
+        plt.figure(figsize=(9,4))
+        bars = plt.bar(com_tab.index, com_tab["Montant_Recouvert"], color="#2d8ee3")
+        plt.title("Montant Recouvert par commercial")
+        plt.xlabel("Commercial")
+        plt.ylabel("Montant Recouvert (MAD)")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        # Ajoute les labels de valeur sur chaque barre
+        for bar, value in zip(bars, com_tab["Montant_Recouvert"]):
+            plt.text(bar.get_x() + bar.get_width()/2, bar.get_height(), f"{int(value):,} MAD", ha='center', va='bottom', fontsize=10)
+        st.pyplot(plt.gcf())
+        plt.clf()
 
         # Export Excel
         com_tab_export = com_tab.copy()
