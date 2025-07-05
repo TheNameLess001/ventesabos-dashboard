@@ -138,7 +138,7 @@ if error:
     st.error(error)
     st.stop()
 
-tabs = st.tabs(["Résumé Global", "Détails par Groupe", "Export"])
+tabs = st.tabs(["⭐Résumé Global", "📜Détails par Groupe", "🚀Export"])
 
 # ===== TAB 1 : Résumé Global =====
 with tabs[0]:
