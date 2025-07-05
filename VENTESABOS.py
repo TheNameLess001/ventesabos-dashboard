@@ -1,5 +1,5 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
@@ -7,6 +7,38 @@ from datetime import datetime
 
 DEFAULT_LOGO = "fitnesspark.png"
 
+def get_image_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+# -- LOGIN SYSTEM --
+def show_login():
+    st.set_page_config(page_title="Connexion | Fitness Park", page_icon="🏋️", layout="centered")
+    st.markdown(f"""
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <img src="data:image/png;base64,{get_image_base64(DEFAULT_LOGO)}" width="180"/>
+            <h2 style="margin-top:15px;font-weight:900;letter-spacing:2px;text-align:center;color:#2c3e50;">Bienvenue sur le Dashboard VENTES ABOS</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    st.write("#### Veuillez vous connecter pour accéder à l'application")
+    username = st.text_input("Utilisateur", value="", placeholder="ex: Admin")
+    password = st.text_input("Mot de passe", value="", type="password", placeholder="Votre mot de passe")
+    colA, colB = st.columns([2,1])
+    login_clicked = colA.button("Connexion", use_container_width=True)
+    forgot = colB.button("Mot de passe oublié ?", use_container_width=True)
+    if forgot:
+        st.markdown(
+            "<a href='mailto:Manager.racine@fitnesspark.ma?subject=Réinitialisation mot de passe Dashboard VentesAbos' style='color:#3498db;font-size:17px;'>📧 Contactez le manager : Manager.racine@fitnesspark.ma</a>",
+            unsafe_allow_html=True
+        )
+    if login_clicked:
+        if username == "Admin" and password == "Fpk@2025":
+            st.session_state['logged'] = True
+            st.experimental_rerun()
+        else:
+            st.error("Identifiants incorrects. Veuillez réessayer.")
+
+# -- LE DASHBOARD PRO (version complète !) --
 def find_col(df, *alternatives):
     def clean(c): return c.strip().lower().replace("’","'").replace("é", "e").replace("è", "e").replace("ê", "e")
     colnames = [clean(c) for c in df.columns]
@@ -16,10 +48,6 @@ def find_col(df, *alternatives):
             if alt2 in c:
                 return df.columns[i]
     return None
-
-def get_image_base64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
 
 def set_css(dark):
     bg = "#181818" if dark else "#f7f9fa"
@@ -148,7 +176,7 @@ def pretty_chart_palette():
         "#8854d0", "#fdcb6e", "#00b894", "#636e72", "#00cec9"
     ]
 
-def main():
+def main_dashboard():
     st.set_page_config(page_title="VENTES ABOS FITNESS PARK", page_icon="📊", layout="wide")
     if 'dark_mode' not in st.session_state:
         st.session_state.dark_mode = False
@@ -202,15 +230,12 @@ def main():
             if not nom_offre_col or not date_crea_col:
                 st.error("Colonne de l'offre ou de date absente.")
             else:
-                # sous-vue 1
                 with subtab_club[0]:
                     table = render_table_with_total(df_filtered, nom_offre_col, "Tableau Club (Total en haut)")
                     export_dict["Club"] = table
-                # sous-vue 2
                 with subtab_club[1]:
                     table_week = render_table_by_week(df_filtered, date_crea_col, nom_offre_col, "Ventes par semaine (offre)")
                     export_dict["Club_semaine"] = table_week
-                # sous-vue 3
                 with subtab_club[2]:
                     table_comb = render_table_by_week_combined(df_filtered, date_crea_col, nom_offre_col, "Ventes Offre × Semaine")
                     export_dict["Club_combine"] = table_comb
@@ -222,18 +247,15 @@ def main():
             if not com_col or not nom_offre_col or not date_crea_col:
                 st.error("Colonnes commercial, offre ou date absentes.")
             else:
-                # sous-vue 1
                 with subtab_com[0]:
                     table_com = render_table_with_total(df_filtered, com_col, "Tableau Commercial (Total en haut)")
                     st.markdown("---")
                     pivot_com = render_commercial_detail(df_filtered, com_col, nom_offre_col, "Détail des abos vendus (brut, Com x Offre)")
                     export_dict["Commercial"] = table_com
                     export_dict["Com_Detail"] = pivot_com
-                # sous-vue 2
                 with subtab_com[1]:
                     table_com_week = render_table_by_week(df_filtered, date_crea_col, com_col, "Ventes par semaine (commercial)")
                     export_dict["Com_semaine"] = table_com_week
-                # sous-vue 3
                 with subtab_com[2]:
                     table_combine = render_table_by_week_combined(df_filtered, date_crea_col, com_col, "Ventes Commercial × Semaine")
                     export_dict["Com_combine"] = table_combine
@@ -245,7 +267,6 @@ def main():
                 st.error("Colonnes manquantes dans le fichier.")
             else:
                 pal = pretty_chart_palette()
-                # Graph 1 : ventes par commercial x offre (stacked)
                 st.markdown("<span class='subtitle'>Ventes par commercial (stacked par offre)</span>", unsafe_allow_html=True)
                 if not df_filtered.empty:
                     pivot = df_filtered.pivot_table(index=com_col, columns=nom_offre_col, values="Nom complet", aggfunc="count", fill_value=0)
@@ -258,7 +279,6 @@ def main():
                     st.pyplot(plt.gcf())
                     plt.clf()
                     export_dict["Graphique (pivot quantités)"] = pivot
-                # Graph 2 : ventes club par offre
                 st.markdown("<span class='subtitle'>Ventes club par offre</span>", unsafe_allow_html=True)
                 club_tab = df_filtered.groupby(nom_offre_col).size().sort_values(ascending=False).to_frame("Quantité")
                 club_tab.plot(kind="bar", figsize=(10,4), color=pal)
@@ -269,7 +289,6 @@ def main():
                 st.pyplot(plt.gcf())
                 plt.clf()
                 export_dict["Graphique Club"] = club_tab
-                # Graph 3 : evolution des ventes club par jour
                 st.markdown("<span class='subtitle'>Évolution du total ventes par jour</span>", unsafe_allow_html=True)
                 df_filtered[date_crea_col] = pd.to_datetime(df_filtered[date_crea_col], dayfirst=True, errors='coerce')
                 daily = df_filtered.groupby(df_filtered[date_crea_col].dt.date).size()
@@ -281,7 +300,6 @@ def main():
                 st.pyplot(plt.gcf())
                 plt.clf()
                 export_dict["Graphique Ventes Jour"] = daily.to_frame("Quantité")
-                # Graph 4 : ventes par commercial par semaine (NOUVEAU)
                 st.markdown("<span class='subtitle'>Ventes par commercial par semaine (stacked)</span>", unsafe_allow_html=True)
                 df_filtered['Semaine'] = df_filtered[date_crea_col].dt.strftime('%Y-%U')
                 week_com_pivot = df_filtered.pivot_table(index='Semaine', columns=com_col, values="Nom complet", aggfunc="count", fill_value=0)
@@ -365,5 +383,11 @@ def main():
 
     copyright()
 
+# -- MAIN ENTRYPOINT --
 if __name__ == "__main__":
-    main()
+    if 'logged' not in st.session_state:
+        st.session_state['logged'] = False
+    if not st.session_state['logged']:
+        show_login()
+    else:
+        main_dashboard()
