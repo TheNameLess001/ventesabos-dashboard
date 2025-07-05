@@ -165,17 +165,6 @@ with tabs[1]:
             else: return 'background-color:#eaffea;color:#12621e;font-weight:bold;'
         st.dataframe(com_tab.style.applymap(lambda v: color_taux(v) if isinstance(v,(float,int)) and v<=100 and v>=0 else ''))
 
-        # Pie chart par commercial (taux)
-        st.markdown("### 🥧 Camembert Recouvert / À recouvrir par commercial (valeur)")
-        for c in com_tab.index:
-            val_rec = com_tab.loc[c, "Montant_Recouvert"]
-            val_a_rec = com_tab.loc[c, "Montant_a_Recouvrir"]
-            figc, axc = plt.subplots(figsize=(3.5,3.5))
-            axc.pie([val_rec, val_a_rec], labels=["Recouvert", "À Recouvrir"], autopct='%1.1f%%', colors=["#37c759","#ff0000"], startangle=90, textprops={'fontsize': 12})
-            axc.axis('equal')
-            st.markdown(f"**{c}**")
-            st.pyplot(figc)
-
         # Barplot taux par commercial
         st.markdown("### 📊 Barplot du taux de recouvrement par commercial")
         plt.figure(figsize=(9,4))
