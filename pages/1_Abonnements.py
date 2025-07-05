@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
+from datetime import datetime
 
 # ========== PROTECTION LOGIN ==========
 if "logged" not in st.session_state or not st.session_state["logged"]:
@@ -59,15 +60,30 @@ col_candidats_date = [
 col_candidats_com = [
     "Nom du commercial initial", "Commercial", "Prénom du commercial initial", "Vendeur"
 ]
+col_candidats_nom = [
+    "Nom", "Nom du client", "Nom complet"
+]
+col_candidats_prenom = [
+    "Prénom", "Prenom", "Prenom du client"
+]
+col_candidats_lastpass = [
+    "Dernier passage 6M", "Dernier passage", "Date dernier passage"
+]
 
 offres_col = match_col(df.columns, col_candidats_offres)
 date_col = match_col(df.columns, col_candidats_date)
 comm_col = match_col(df.columns, col_candidats_com)
+nom_col = match_col(df.columns, col_candidats_nom)
+prenom_col = match_col(df.columns, col_candidats_prenom)
+lastpass_col = match_col(df.columns, col_candidats_lastpass)
 
 st.subheader("🛠️ Vérification colonnes (modifiez si besoin)")
 offres_col = st.selectbox("Colonne des Offres", options=df.columns.tolist(), index=df.columns.get_loc(offres_col) if offres_col in df.columns else 0)
 date_col = st.selectbox("Colonne Date de création", options=df.columns.tolist(), index=df.columns.get_loc(date_col) if date_col in df.columns else 0)
 comm_col = st.selectbox("Colonne Commercial", options=df.columns.tolist(), index=df.columns.get_loc(comm_col) if comm_col in df.columns else 0)
+nom_col = st.selectbox("Colonne Nom", options=df.columns.tolist(), index=df.columns.get_loc(nom_col) if nom_col in df.columns else 0)
+prenom_col = st.selectbox("Colonne Prénom", options=df.columns.tolist(), index=df.columns.get_loc(prenom_col) if prenom_col in df.columns else 0)
+lastpass_col = st.selectbox("Colonne Dernier Passage", options=df.columns.tolist(), index=df.columns.get_loc(lastpass_col) if lastpass_col in df.columns else 0)
 
 # --- Filtres dynamiques ---
 st.subheader("🎛️ Filtres dynamiques")
@@ -77,7 +93,7 @@ filtre_offre = st.multiselect("Filtrer par Offre", offres_uniques, offres_unique
 filtre_com = st.multiselect("Filtrer par Commercial", commerciaux_uniques, commerciaux_uniques)
 df = df[df[offres_col].isin(filtre_offre) & df[comm_col].isin(filtre_com)]
 
-tabs = st.tabs(["Vue Club", "Vue Commerciale", "Graphiques"])
+tabs = st.tabs(["Vue Club", "Vue Commerciale", "Graphiques", "Inactifs"])
 
 # ===== VUE CLUB =====
 with tabs[0]:
@@ -146,6 +162,31 @@ with tabs[2]:
     plt.tight_layout()
     st.pyplot(plt.gcf())
     plt.clf()
+
+# ===== INACTIFS =====
+with tabs[3]:
+    st.subheader("🙅‍♂️ Analyse des clients inactifs")
+    if lastpass_col and nom_col and prenom_col:
+        df['Nom complet'] = df[nom_col].astype(str).str.strip() + ' ' + df[prenom_col].astype(str).str.strip()
+        df['Dernier passage dt'] = pd.to_datetime(df[lastpass_col], dayfirst=True, errors='coerce')
+        now = pd.to_datetime(datetime.now().date())
+        nb_jours = st.slider("Période d'inactivité (jours)", min_value=7, max_value=180, step=1, value=15)
+        dernier_passage = df.groupby('Nom complet')['Dernier passage dt'].max().reset_index()
+        dernier_passage = dernier_passage[dernier_passage['Dernier passage dt'].notna()]
+        dernier_passage['Inactif'] = (now - dernier_passage['Dernier passage dt']).dt.days > nb_jours
+        inactive = dernier_passage[dernier_passage['Inactif']]
+        # Détail commercial
+        last_trans = df.sort_values(['Nom complet','Dernier passage dt']).drop_duplicates('Nom complet', keep='last')
+        inactive_com = inactive.merge(last_trans[['Nom complet',comm_col,'Dernier passage dt']], on=['Nom complet','Dernier passage dt'], how='left')
+        res_inactif = inactive_com.groupby(comm_col)['Nom complet'].count().reset_index().rename(
+            columns={'Nom complet':f'Nb clients inactifs (> {nb_jours}j)', comm_col:"Commercial"}
+        ).sort_values(f'Nb clients inactifs (> {nb_jours}j)', ascending=False)
+        st.markdown(f"**Inactifs par commercial (période > {nb_jours} jours)**")
+        st.dataframe(res_inactif)
+        st.markdown("**Détail inactifs (nom complet, dernier passage)**")
+        st.dataframe(inactive_com[['Nom complet',comm_col,'Dernier passage dt']].sort_values(comm_col))
+    else:
+        st.warning("Impossible d'analyser les inactifs (colonnes manquantes). Vérifiez vos sélections.")
 
 # ===== EXPORT =====
 st.markdown("#### 📥 Export (Excel)")
