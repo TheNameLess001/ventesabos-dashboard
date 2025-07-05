@@ -70,7 +70,7 @@ with tabs[0]:
 # ===== VUE COMMERCIALE =====
 with tabs[1]:
     st.subheader("🟢 Tableau Commercial (quantités)")
-    table_com = df.groupby(comm_col)[offres_col].value_counts().unstack(fill_value=0)
+    table_com = df.groupby([comm_col, offres_col]).size().unstack(fill_value=0)
     st.dataframe(table_com)
 
     st.subheader("📅 Ventes par semaine (par Commercial)")
