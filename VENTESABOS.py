@@ -1,4 +1,4 @@
-# --- IMPORTS ---
+# ========== IMPORTS ==========
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,43 +7,11 @@ from io import BytesIO
 import base64
 import datetime
 
-# --- CONFIG ---
-st.set_page_config(page_title="VENTESABOS - SBN", page_icon="📊", layout="wide")
-st.markdown("""
-    <style>
-    body {background-color: #f7f9fa;}
-    .stButton>button {background-color: #2ecc71; color: white; border-radius:10px;}
-    .stTabs [data-baseweb="tab-list"] button {font-size: 1.1rem;}
-    </style>
-""", unsafe_allow_html=True)
+# ========== CONFIG ==========
+st.set_page_config(page_title="VENTESABOS BI SUITE", page_icon="📊", layout="wide")
+LOGO_PATH = "logo_fitnesspark.png"  # <- mets ici le vrai nom de ton logo
 
-# --- LOGO & HEADER ---
-def show_header():
-    st.image("fitnesspark.png", width=160)
-    st.markdown("<h1 style='text-align:center; color:#222;'>VENTES ABONNEMENTS / RECOUVREMENT</h1>", unsafe_allow_html=True)
-    st.markdown("---")
-
-# --- LOGIN ---
-def show_login():
-    st.image("fitnesspark.png", width=120)
-    st.markdown("<h2 style='text-align:center;'>Authentification</h2>", unsafe_allow_html=True)
-    with st.form("login_form", clear_on_submit=False):
-        user = st.text_input("Utilisateur", value="", key="login_user")
-        pwd = st.text_input("Mot de passe", value="", type="password", key="login_pwd")
-        submit = st.form_submit_button("Connexion")
-        if submit:
-            if user.lower() == "admin" and pwd == "Fpk@2025":
-                st.session_state["logged"] = True
-                st.experimental_rerun()
-            else:
-                st.error("Identifiants incorrects.")
-        if st.button("Mot de passe oublié ?"):
-            st.info("Contactez : [Manager.racine@fitnesspark.ma](mailto:Manager.racine@fitnesspark.ma)")
-
-def show_logout():
-    st.sidebar.button("Déconnexion", on_click=lambda: st.session_state.update({"logged": False}), key="logout_btn")
-
-# --- UTILS ---
+# ========== UTILS ==========
 def to_excel(df_dict):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -53,15 +21,60 @@ def to_excel(df_dict):
     b64 = base64.b64encode(output.read()).decode()
     return b64
 
-# ============================== VUES ABONNEMENTS ===========================
+# ========== LOGIN ==========
+def show_login():
+    st.markdown(
+        """
+        <style>
+        .login-title {text-align: center; font-size: 2em; font-weight: bold; color: #262730; margin-bottom: 0.5em;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    col1, col2, col3 = st.columns([2,4,2])
+    with col2:
+        st.image(LOGO_PATH, width=210)
+    st.markdown('<div class="login-title">Bienvenue sur le Dashboard Ventes & Recouvrement</div>', unsafe_allow_html=True)
+    with st.form(key="login_form"):
+        username = st.text_input("Utilisateur", placeholder="Admin")
+        password = st.text_input("Mot de passe", type="password", placeholder="********")
+        submit = st.form_submit_button("Se connecter")
+    if st.button("Mot de passe oublié ?"):
+        st.info("Contactez : [Manager.racine@fitnesspark.ma](mailto:Manager.racine@fitnesspark.ma)")
+    if submit:
+        if username == "Admin" and password == "Fpk@2025":
+            st.session_state["logged"] = True
+            st.experimental_rerun()
+        else:
+            st.error("Identifiants incorrects.")
+
+def show_logout():
+    st.sidebar.markdown("---")
+    if st.sidebar.button("Déconnexion"):
+        st.session_state["logged"] = False
+        st.experimental_rerun()
+
+# ========== HEADER =============
+def show_header():
+    st.markdown(
+        f"""
+        <div style="display:flex;flex-direction:column;align-items:center;">
+            <img src="{LOGO_PATH}" width="150"/>
+            <span style="font-size:2.4rem;font-weight:800;letter-spacing:2px;color:#2c3e50;">DASHBOARD ANALYTIQUE FITNESS PARK</span>
+            <span style="color:#2c3e50;font-size:16px;">Ventes Abos & Recouvrement • {datetime.datetime.now().strftime('%d/%m/%Y')}</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown("---")
+
+# ========== VUE ABONNEMENTS ==========
 def vue_abos():
     st.header("Vue Abonnements (Club / Commerciaux)")
     file = st.file_uploader("Importer le fichier de ventes (CSV ou Excel)", type=["csv", "xlsx"], key="abos")
     if not file:
         st.info("Importez un fichier de ventes pour démarrer.")
         return
-
-    # --- DATA ---
     ext = file.name.split('.')[-1]
     if ext == "csv":
         df = pd.read_csv(file, encoding='utf-8', sep=None, engine='python')
@@ -69,12 +82,10 @@ def vue_abos():
         df = pd.read_excel(file, engine="openpyxl")
     df.columns = df.columns.str.strip()
 
-    # --- Colonnes dynamiques (détecte ou propose dropdown) ---
     offres_col = st.selectbox("Colonne des Offres", options=df.columns.tolist(), index=5)
     date_col = st.selectbox("Colonne Date de création", options=df.columns.tolist(), index=6)
     comm_col = st.selectbox("Colonne Commercial", options=df.columns.tolist(), index=11)
 
-    # Filtres dynamiques
     offres_uniques = df[offres_col].dropna().unique().tolist()
     commerciaux_uniques = df[comm_col].dropna().unique().tolist()
     filtre_offre = st.multiselect("Filtrer par Offre", offres_uniques, offres_uniques)
@@ -83,7 +94,6 @@ def vue_abos():
 
     tabs = st.tabs(["Vue Club", "Vue Commerciale"])
 
-    # --- VUE CLUB ---
     with tabs[0]:
         st.subheader("Tableau Club (quantités)")
         table_club = df.groupby(offres_col).size().to_frame("Quantité").sort_values("Quantité", ascending=False)
@@ -92,8 +102,6 @@ def vue_abos():
         df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
         table_week = df.groupby(df[date_col].dt.to_period('W'))[offres_col].value_counts().unstack().fillna(0)
         st.dataframe(table_week)
-    
-    # --- VUE COMMERCIALE ---
     with tabs[1]:
         st.subheader("Tableau Commercial (quantités)")
         table_com = df.groupby(comm_col)[offres_col].value_counts().unstack(fill_value=0)
@@ -101,13 +109,11 @@ def vue_abos():
         st.subheader("Ventes par semaine (par Commercial)")
         week_com = df.groupby([df[date_col].dt.to_period('W'), comm_col]).size().unstack(fill_value=0)
         st.dataframe(week_com)
-    
-    # --- EXPORT
     st.markdown("#### 📥 Export (Excel)")
     excel_data = to_excel({"Tableau Club": table_club, "Tableau Commercial": table_com, "Par Semaine Club": table_week, "Par Semaine Com": week_com})
     st.download_button("Télécharger tout (Excel)", base64.b64decode(excel_data), file_name="analyse_abos.xlsx")
-    
-# ============================== VUES RECOUVREMENT ===========================
+
+# ========== VUE RECOUVREMENT ==========
 def vue_recouvrement():
     st.header("Vue Recouvrement")
     recouv_file = st.file_uploader(
@@ -117,6 +123,7 @@ def vue_recouvrement():
         st.info("Importe un fichier de recouvrement pour afficher les analyses.")
         return
 
+    # Lecture fichier
     df_recouv = pd.read_csv(recouv_file) if recouv_file.name.endswith('csv') else pd.read_excel(recouv_file)
     df_recouv.columns = df_recouv.columns.str.strip()
 
@@ -125,7 +132,7 @@ def vue_recouvrement():
     avoir_col = "Règlement avoir de l'incident"   # Colonne S
     commercial_col = "Prénom du commercial initial" # Colonne X
 
-    # --- Nettoyage du montant (float ready) ---
+    # Nettoyage du montant (float ready)
     df_recouv[montant_col] = (
         df_recouv[montant_col]
         .astype(str)
@@ -138,7 +145,7 @@ def vue_recouvrement():
     # Statut recouvert = au moins une des 2 colonnes remplie (R ou S)
     df_recouv["Recouvert"] = df_recouv[reglement_col].notna() | df_recouv[avoir_col].notna()
 
-    # === GLOBAL CLUB ===
+    # GLOBAL CLUB
     total_rejets = len(df_recouv)
     total_montant = df_recouv[montant_col].sum()
     nb_recouvert = df_recouv["Recouvert"].sum()
@@ -155,7 +162,6 @@ def vue_recouvrement():
     col2.metric("Recouvert (valeur)", f"{montant_recouvert:,.0f} MAD")
     col3.metric("À recouvrir (valeur)", f"{montant_impaye:,.0f} MAD")
 
-    # === TABLEAU CLUB ===
     table_club = pd.DataFrame({
         "Total rejets (quantité)": [total_rejets],
         "Recouvert (quantité)": [nb_recouvert],
@@ -166,7 +172,6 @@ def vue_recouvrement():
     })
     st.dataframe(table_club)
 
-    # === TABLEAU PAR COMMERCIAL ===
     st.markdown("## 🧑‍💼 Vue par Commercial initial")
     table_com = df_recouv.groupby(commercial_col).agg(
         Total_Rejets = (montant_col, 'count'),
@@ -178,7 +183,6 @@ def vue_recouvrement():
     )
     st.dataframe(table_com)
 
-    # === GRAPHIQUE ===
     st.markdown("## 📈 Evolution du recouvrement (valeur recouvrée par mois)")
     df_recouv["Date_Regl"] = pd.to_datetime(df_recouv[reglement_col], errors='coerce')
     evolution = df_recouv[df_recouv["Recouvert"]].groupby(df_recouv["Date_Regl"].dt.to_period('M'))[montant_col].sum()
@@ -190,7 +194,6 @@ def vue_recouvrement():
     st.pyplot(plt.gcf())
     plt.clf()
 
-    # === EXPORT
     export_dict_rcv = {
         "Tableau Club Recouvrement": table_club,
         "Tableau Commerciaux Recouvrement": table_com,
@@ -203,7 +206,7 @@ def vue_recouvrement():
         file_name="analyse_recouvrement.xlsx"
     )
 
-# ============================== APP MAIN ===========================
+# ========== APP PRINCIPALE ==========
 def main():
     show_header()
     show_logout()
@@ -213,11 +216,10 @@ def main():
     with onglets[1]:
         vue_recouvrement()
 
-# --- APP ENTRY ---
 if "logged" not in st.session_state:
     st.session_state["logged"] = False
-
 if not st.session_state["logged"]:
     show_login()
+    st.stop()
 else:
     main()
