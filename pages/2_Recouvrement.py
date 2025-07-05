@@ -189,17 +189,6 @@ with tabs[1]:
                 .applymap(color_taux)
         )
 
-        # Camembert & barplot par commercial
-        st.markdown("### 🥧 Camembert Recouvert / À recouvrir par commercial (valeur)")
-        for c in com_tab.index:
-            val_rec = com_tab.loc[c, "Montant_Recouvert"]
-            val_a_rec = com_tab.loc[c, "Montant_a_Recouvrir"]
-            figc, axc = plt.subplots(figsize=(3.5,3.5))
-            axc.pie([val_rec, val_a_rec], labels=["Recouvert", "À Recouvrir"], autopct=lambda p: fmt_mad(p*(val_rec+val_a_rec)/100), colors=["#37c759","#ff0000"], startangle=90, textprops={'fontsize': 12})
-            axc.axis('equal')
-            st.markdown(f"**{c}**")
-            st.pyplot(figc)
-
         st.markdown("### 📊 Barplot du taux de recouvrement par commercial")
         plt.figure(figsize=(9,4))
         com_tab["Taux (%)"].plot(kind="bar", color=[("#ff0000" if v<50 else "#ff8800" if v<60 else "#37c759") for v in com_tab["Taux (%)"]])
