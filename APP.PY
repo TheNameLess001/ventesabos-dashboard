@@ -38,4 +38,4 @@ else:
 if st.session_state["logged"]:
     if st.sidebar.button("Déconnexion"):
         st.session_state["logged"] = False
-        st.experimental_rerun()
+        st.rerun()
