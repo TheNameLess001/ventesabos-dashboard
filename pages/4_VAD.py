@@ -54,6 +54,7 @@ def safe_read_any(file):
     st.error("Impossible de lire le fichier. Essayez un autre format ou encoding.")
     st.stop()
 
+# --- Upload ---
 vad_file = st.file_uploader("Importer un fichier VAD (Excel ou CSV)", type=["xlsx", "xls", "csv"])
 if not vad_file:
     st.info("Importez un fichier VAD pour démarrer l'analyse.")
@@ -62,47 +63,83 @@ if not vad_file:
 df = safe_read_any(vad_file)
 df.columns = df.columns.str.strip()
 
-st.info("Colonnes disponibles : " + ", ".join(df.columns))
+# --- Auto-match de colonnes (avec fallback pour user selection) ---
+def auto_select(candidates, dfcols, contains_any=None):
+    for c in candidates:
+        if c in dfcols:
+            return c
+    # sinon, essaie avec "contient"
+    if contains_any:
+        for c in dfcols:
+            if any(word in c.lower() for word in contains_any):
+                return c
+    return dfcols[0]
 
-# Sélection manuelle par l'utilisateur
-with st.expander("🛠️ Sélectionner les colonnes à utiliser", expanded=True):
-    col_date = st.selectbox("Colonne date de création", options=df.columns)
-    col_auteur = st.selectbox("Colonne Auteur", options=df.columns)
-    col_etat = st.selectbox("Colonne Etat de la facture ou de l'avoir", options=df.columns)
-    col_mttc = st.selectbox("Colonne Montant TTC", options=df.columns)
-    col_mtht = st.selectbox("Colonne Montant HT", options=df.columns)
-    col_nom = st.selectbox("Colonne Nom (hors prénom)", options=df.columns)
-    col_prenom = st.selectbox("Colonne Prénom", options=df.columns)
-    col_produit = st.selectbox("Colonne Code du produit", options=df.columns)
+with st.expander("🛠️ Vérifiez/sélectionnez les colonnes à utiliser", expanded=False):
+    cols = list(df.columns)
+    col_date = st.selectbox("Colonne date de création", options=cols,
+                            index=cols.index(auto_select(
+                                ["Date de création de la facture", "Date"], cols, ["date"])))
+    col_auteur = st.selectbox("Colonne Auteur", options=cols,
+                              index=cols.index(auto_select(
+                                ["Auteur"], cols, ["auteur"])))
+    col_etat = st.selectbox("Colonne Etat de la facture ou de l'avoir", options=cols,
+                            index=cols.index(auto_select(
+                                ["Etat de la facture ou de l'avoir", "Etat"], cols, ["etat"])))
+    col_mttc = st.selectbox("Colonne Montant TTC", options=cols,
+                            index=cols.index(auto_select(
+                                ["Montant TTC facture ou avoir", "Montant TTC"], cols, ["ttc"])))
+    col_mtht = st.selectbox("Colonne Montant HT", options=cols,
+                            index=cols.index(auto_select(
+                                ["Montant HT facture ou avoir", "Montant HT de la ligne de facture / avoir", "Montant HT"], cols, ["ht"])))
+    col_nom = st.selectbox("Colonne Nom (hors prénom)", options=cols,
+                           index=cols.index(auto_select(
+                                ["Nom"], cols, ["nom"])))
+    col_prenom = st.selectbox("Colonne Prénom", options=cols,
+                              index=cols.index(auto_select(
+                                ["Prénom"], cols, ["prenom"])))
+    col_produit = st.selectbox("Colonne Code du produit", options=cols,
+                               index=cols.index(auto_select(
+                                ["Code du produit"], cols, ["code du produit", "code"])))
+    # Club & Commercial
+    club_col = st.selectbox("Colonne Club", options=cols,
+                            index=cols.index(auto_select(["Club"], cols, ["club"])))
+    commercial_col = st.selectbox("Colonne Commercial", options=cols,
+                                  index=cols.index(auto_select(
+                                      ["Auteur", "Nom du commercial actuel", "Nom du commercial initial"], cols, ["auteur", "commercial"])))
 
 # Cleaning rules
 df = df[df[col_auteur].astype(str).str.lower() != "automatisme"]
 df = df[df[col_etat].astype(str).str.lower() != "annulé"]
 
-# 🚨 Conversion ultra-robuste des montants
+# Conversion robuste des montants
 def clean_money(s):
     return (
         s.astype(str)
-        .str.replace("\u202f", "", regex=True)    # Espace insécable
-        .str.replace(" ", "", regex=True)         # Espaces classiques
-        .str.replace(",", ".", regex=False)       # Virgules --> points
+        .str.replace("\u202f", "", regex=True)
+        .str.replace(" ", "", regex=True)
+        .str.replace(",", ".", regex=False)
         .str.replace("MAD", "", regex=False)
         .str.replace("dh", "", regex=False)
-        .str.replace("-", "", regex=False)        # On enlève les tirets (pour NA, valeurs bizarres)
-        .str.extract(r'([-+]?\d*\.?\d+)', expand=False)   # Garde chiffres/point/signes
+        .str.replace("-", "", regex=False)
+        .str.extract(r'([-+]?\d*\.?\d+)', expand=False)
     )
 
 df[col_mtht] = pd.to_numeric(clean_money(df[col_mtht]), errors="coerce")
 df[col_mttc] = pd.to_numeric(clean_money(df[col_mttc]), errors="coerce")
 
-# Supprime les lignes non convertibles en nombre (float)
 df = df[df[col_mtht].notnull() & df[col_mttc].notnull()]
-
 df = df[df[col_mtht] > 0]
 
 # Client unique par Nom+Prénom
 df['Client_Unique'] = (df[col_nom].astype(str).str.strip() + " " + df[col_prenom].astype(str).str.strip()).str.upper()
 df['Date'] = pd.to_datetime(df[col_date], dayfirst=True, errors='coerce')
+
+# ---- Filtres auteur ----
+all_auteurs = sorted(df[col_auteur].dropna().unique().tolist())
+selected_auteurs = st.sidebar.multiselect("Filtrer par Auteur", all_auteurs, default=all_auteurs)
+
+df = df[df[col_auteur].isin(selected_auteurs)]
 
 # Filtres interactifs
 filtre_650 = st.sidebar.checkbox("⚡ Filtrer sur Montant TTC >= 650", value=False)
@@ -126,14 +163,12 @@ with tabs[0]:
     st.write("Montant HT total :", f"{df[col_mtht].sum():,.0f} MAD")
     st.write("Nombre de lignes Access+ :", (df[col_produit].astype(str).str.upper() == "ALLACCESS+").sum())
     st.write("Nombre de lignes Waterstation :", (df[col_produit].astype(str).str.lower() == "waterstation").sum())
-    # Graph TTC
     st.markdown("### Pie Chart - Répartition des produits (TT)")
     top_prod = df.groupby(col_produit)[col_mttc].sum().sort_values(ascending=False).head(8)
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.pie(top_prod.values, labels=top_prod.index, autopct='%1.1f%%', startangle=90)
     ax.axis('equal')
     st.pyplot(fig)
-    # Barplot MTT HT
     st.markdown("### Barplot - Montant HT par produit (Top 10)")
     ht_by_prod = df.groupby(col_produit)[col_mtht].sum().sort_values(ascending=False).head(10)
     plt.figure(figsize=(8,4))
@@ -147,13 +182,10 @@ with tabs[0]:
 # ==== Par Club (Access+, Waterstation) ====
 with tabs[1]:
     st.subheader("🏟️ Analyse Club (Access+, Waterstation)")
-    # Sélection club
-    club_col_candidates = [c for c in df.columns if "club" in c.lower()]
-    if not club_col_candidates:
-        club_col_candidates = df.columns
-    club_col = st.selectbox("Sélectionner la colonne club", options=club_col_candidates)
-    access_df = df[df[col_produit].astype(str).str.upper() == "ALLACCESS+"]
-    water_df = df[df[col_produit].astype(str).str.lower() == "waterstation"]
+    auteurs_club = st.multiselect("Filtrer par Auteur (Club)", all_auteurs, default=all_auteurs, key="auteurs_club")
+    club_df = df[df[col_auteur].isin(auteurs_club)]
+    access_df = club_df[club_df[col_produit].astype(str).str.upper() == "ALLACCESS+"]
+    water_df = club_df[club_df[col_produit].astype(str).str.lower() == "waterstation"]
     st.markdown("### Access+ par club")
     acc_club = access_df.groupby(club_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(acc_club.to_frame("Clients Access+ uniques"))
@@ -164,7 +196,6 @@ with tabs[1]:
     plt.tight_layout()
     st.pyplot(fig)
     plt.clf()
-
     st.markdown("### Waterstation par club")
     water_club = water_df.groupby(club_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(water_club.to_frame("Clients Waterstation uniques"))
@@ -179,12 +210,9 @@ with tabs[1]:
 # ==== Par Commercial ====
 with tabs[2]:
     st.subheader("🧑‍💼 Analyse Commerciale VAD")
-    # Sélection commerciale
-    commercial_col_candidates = [c for c in df.columns if "commercial" in c.lower()]
-    if not commercial_col_candidates:
-        commercial_col_candidates = df.columns
-    commercial_col = st.selectbox("Sélectionner la colonne commercial", options=commercial_col_candidates)
-    vad_com = df.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False)
+    auteurs_com = st.multiselect("Filtrer par Auteur (Commerciaux)", all_auteurs, default=all_auteurs, key="auteurs_com")
+    commercial_df = df[df[col_auteur].isin(auteurs_com)]
+    vad_com = commercial_df.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(vad_com.to_frame("Clients uniques"))
     fig, ax = plt.subplots()
     vad_com.plot(kind="bar", color="#FFD700", ax=ax)
