@@ -6,45 +6,6 @@ from io import BytesIO
 import base64
 from datetime import datetime
 
-import streamlit as st
-import pandas as pd
-
-# ... autres imports ...
-
-DF_KEY = "abos_df"      # Unique pour chaque page : "recouvrement_df", "vad_df", etc.
-FILE_KEY = "abos_file"  # Pareil
-
-if DF_KEY not in st.session_state:
-    st.session_state[DF_KEY] = None
-if FILE_KEY not in st.session_state:
-    st.session_state[FILE_KEY] = None
-
-use_previous = False
-
-if st.session_state[DF_KEY] is not None:
-    st.success("Un fichier est déjà chargé pour cette page.")
-    use_previous = st.checkbox("Utiliser le fichier déjà importé ?", value=True)
-
-if use_previous:
-    df = st.session_state[DF_KEY]
-else:
-    uploaded_file = st.file_uploader("Importer un fichier Abonnements...", key="abos_upload")
-    if uploaded_file:
-        # Remplace cette partie par TON code de lecture habituel (csv/excel, cleaning etc.)
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file, encoding="utf-8", sep=None, engine='python')
-        else:
-            df = pd.read_excel(uploaded_file, engine="openpyxl")
-        # ... processing/cleaning ici ...
-        st.session_state[DF_KEY] = df
-        st.session_state[FILE_KEY] = uploaded_file
-    else:
-        st.info("Merci d'importer un fichier pour commencer.")
-        st.stop()
-
-# 👉 Ici tu peux continuer avec ton code analytique en utilisant df.
-
-
 # ========== PROTECTION LOGIN ==========
 if "logged" not in st.session_state or not st.session_state["logged"]:
     st.warning("Vous devez vous connecter depuis la page d'accueil.")
