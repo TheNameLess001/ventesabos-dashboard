@@ -162,33 +162,7 @@ with tabs[2]:
     plt.tight_layout()
     st.pyplot(plt.gcf())
     plt.clf()
-# ... tous tes graphes/tables abonnements
-
-# ANALYSE GPT
-import openai
-openai.api_key = "sk-..."  # (remplace)
-
-def resume_stats(df):
-    # (voir bloc ci-dessus)
-
-if st.button("🧠 Générer l’analyse automatique"):
-    st.info("Génération de l'analyse, merci de patienter...")
-    prompt = f"""Tu es un expert en gestion de clubs de sport Fitness Park.
-Voici un résumé d’indicateurs :
-{resume_stats(df)}
-
-Rédige une analyse synthétique et professionnelle pour un manager Fitness Park, avec conseils ou recommandations si nécessaire."""
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
-    )
-    result = response.choices[0].message["content"]
-    st.markdown("### 📝 Analyse automatique :")
-    st.success(result)
-
-# st.download_button(...) etc.
-
+    
 # ===== INACTIFS =====
 with tabs[3]:
     st.subheader("🙅‍♂️ Analyse des clients inactifs")
