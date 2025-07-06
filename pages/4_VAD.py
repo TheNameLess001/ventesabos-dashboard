@@ -78,6 +78,11 @@ with st.expander("🛠️ Sélectionner les colonnes à utiliser", expanded=True
 # Cleaning rules
 df = df[df[col_auteur].astype(str).str.lower() != "automatisme"]
 df = df[df[col_etat].astype(str).str.lower() != "annulé"]
+
+# 🚨 Conversion automatique des montants !
+df[col_mtht] = pd.to_numeric(df[col_mtht], errors="coerce")
+df[col_mttc] = pd.to_numeric(df[col_mttc], errors="coerce")
+
 df = df[df[col_mtht] > 0]
 
 # Client unique par Nom+Prénom
