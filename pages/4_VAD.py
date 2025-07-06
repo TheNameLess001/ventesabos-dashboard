@@ -26,25 +26,25 @@ for enc in ["utf-8", "cp1252", "latin-1"]:
     except Exception:
         continue
 
-def find_col(possibles, fallback=None):
-    for c in df.columns:
-        c_l = c.lower()
-        if any(p in c_l for p in possibles):
-            return c
-    if fallback and fallback in df.columns:
-        return fallback
-    # Si rien trouvé, return None
+df.columns = df.columns.str.strip()
+
+# Détection automatique avec fallback manuel
+def find_col(candidates):
+    for col in df.columns:
+        col_l = col.lower().replace("é", "e").replace("è", "e").replace("ê", "e")
+        for c in candidates:
+            if c in col_l:
+                return col
     return None
 
-    nom_col = find_col(["nom"])
-    prenom_col = find_col(["prénom", "prenom"])
-    montant_ttc_col = find_col(["ttc", "montant ttc"], "M")
-    montant_ht_col = find_col(["montant ht"], "R")
-    codeprod_col = find_col(["code produit"], "P")
-    com_col = find_col(["commercial", "prénom du commercial initial"], "W")
+nom_col = find_col(["nom"])
+prenom_col = find_col(["prenom"])
+montant_ttc_col = find_col(["ttc", "montant ttc"])
+montant_ht_col = find_col(["montant ht"])
+codeprod_col = find_col(["code produit"])
+com_col = find_col(["commercial", "prenom du commercial initial"])
 
-# Vérifie la détection, propose un selectbox si besoin
-if not nom_col or not prenom_col or not montant_ttc_col or not montant_ht_col or not codeprod_col or not com_col:
+if not all([nom_col, prenom_col, montant_ttc_col, montant_ht_col, codeprod_col, com_col]):
     st.warning("Colonnes non détectées automatiquement. Merci de les sélectionner manuellement :")
     nom_col = st.selectbox("Colonne Nom", df.columns)
     prenom_col = st.selectbox("Colonne Prénom", df.columns)
@@ -52,7 +52,6 @@ if not nom_col or not prenom_col or not montant_ttc_col or not montant_ht_col or
     montant_ht_col = st.selectbox("Colonne Montant HT", df.columns)
     codeprod_col = st.selectbox("Colonne Code Produit", df.columns)
     com_col = st.selectbox("Colonne Prénom du commercial initial", df.columns)
-
 
 # Nettoyage des montants (pas de négatif ni zéro, HT)
 df[montant_ht_col] = pd.to_numeric(df[montant_ht_col], errors="coerce").fillna(0)
@@ -90,7 +89,6 @@ plt.clf()
 # Section WATERSTATION
 st.header("💧 Analyse WATERSTATION")
 df_ws = df[df[codeprod_col].astype(str).str.lower().str.startswith("waterstation")]
-# Un seul accès par client (Nom+Prénom)
 df_ws["client_id"] = df_ws[nom_col].astype(str).str.strip().str.upper() + " " + df_ws[prenom_col].astype(str).str.strip().str.upper()
 df_ws = df_ws.drop_duplicates("client_id")
 
