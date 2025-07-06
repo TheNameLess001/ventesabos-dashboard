@@ -17,7 +17,7 @@ st.markdown("""
         width: 100%;
     }
     .scroll-instructions {
-        max-height: 340px;
+        max-height: 520px;
         overflow-y: auto;
         padding: 16px 22px;
         background: #fffbe6;
