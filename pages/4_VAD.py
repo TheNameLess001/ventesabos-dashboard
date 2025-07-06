@@ -79,7 +79,7 @@ col_mttc = get_col("ttc", "❌ Colonne Montant TTC introuvable.")
 col_mtht = get_col("ht", "❌ Colonne Montant HT introuvable.")
 col_nom = get_col("nom", "❌ Colonne Nom introuvable (hors prénom).")
 col_prénom = get_col("prénom", "❌ Colonne Prénom introuvable.")
-col_produit = get_col("code produit", "❌ Colonne Code du produit introuvable.")
+col_produit = get_col("code du produit", "❌ Colonne Code du produit introuvable.")
 
 # Cleaning rules
 df = df[df[col_auteur].str.lower() != "automatisme"]
