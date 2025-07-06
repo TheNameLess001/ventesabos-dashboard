@@ -78,7 +78,7 @@ col_etat = get_col("etat", "❌ Colonne Etat de la facture ou de l'avoir introuv
 col_mttc = get_col("ttc", "❌ Colonne Montant TTC introuvable.")
 col_mtht = get_col("ht", "❌ Colonne Montant HT introuvable.")
 col_nom = get_col("nom", "❌ Colonne Nom introuvable (hors prénom).")
-col_prenom = get_col("prenom", "❌ Colonne Prénom introuvable.")
+col_prénom = get_col("prénom", "❌ Colonne Prénom introuvable.")
 col_produit = get_col("code produit", "❌ Colonne Code du produit introuvable.")
 
 # Cleaning rules
@@ -87,7 +87,7 @@ df = df[df[col_etat].str.lower() != "annulé"]
 df = df[df[col_mtht] > 0]
 
 # Client unique par Nom+Prénom
-df['Client_Unique'] = (df[col_nom].astype(str).str.strip() + " " + df[col_prenom].astype(str).str.strip()).str.upper()
+df['Client_Unique'] = (df[col_nom].astype(str).str.strip() + " " + df[col_prénom].astype(str).str.strip()).str.upper()
 df['Date'] = pd.to_datetime(df[col_date], dayfirst=True, errors='coerce')
 
 # Filtres interactifs
