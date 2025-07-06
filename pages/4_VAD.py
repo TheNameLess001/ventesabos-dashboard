@@ -13,7 +13,6 @@ if not file:
     st.info("Importez un fichier VAD pour démarrer l'analyse.")
     st.stop()
 
-# Auto encodage
 ext = file.name.split('.')[-1]
 for enc in ["utf-8", "cp1252", "latin-1"]:
     try:
@@ -28,89 +27,111 @@ for enc in ["utf-8", "cp1252", "latin-1"]:
 
 df.columns = df.columns.str.strip()
 
-# Détection automatique avec fallback manuel
-def find_col(candidates):
+# --- NOM EXACT DES COLONNES ---
+def find_col(possibles):
     for col in df.columns:
         col_l = col.lower().replace("é", "e").replace("è", "e").replace("ê", "e")
-        for c in candidates:
-            if c in col_l:
+        for p in possibles:
+            if col_l == p.lower():
                 return col
     return None
 
 nom_col = find_col(["nom"])
-prenom_col = find_col(["prenom"])
-montant_ttc_col = find_col(["ttc", "montant ttc"])
-montant_ht_col = find_col(["montant ht"])
-codeprod_col = find_col(["code produit"])
-com_col = find_col(["commercial", "prenom du commercial initial"])
+prenom_col = find_col(["prénom", "prenom"])
+montant_ttc_col = find_col(["montant ttc facture ou avoir"])
+montant_ht_col = find_col(["montant ht de la ligne de facture / avoir"])
+codeprod_col = find_col(["code du produit"])
+com_col = find_col(["auteur"])
+statut_col = None
+for col in df.columns:
+    if "statut" in col.lower() or col.lower() == "f":
+        statut_col = col
+        break
 
 if not all([nom_col, prenom_col, montant_ttc_col, montant_ht_col, codeprod_col, com_col]):
     st.warning("Colonnes non détectées automatiquement. Merci de les sélectionner manuellement :")
     nom_col = st.selectbox("Colonne Nom", df.columns)
     prenom_col = st.selectbox("Colonne Prénom", df.columns)
     montant_ttc_col = st.selectbox("Colonne Montant TTC facture ou avoir", df.columns)
-    montant_ht_col = st.selectbox("Colonne Montant HT", df.columns)
-    codeprod_col = st.selectbox("Colonne Code Produit", df.columns)
-    com_col = st.selectbox("Colonne Prénom du commercial initial", df.columns)
+    montant_ht_col = st.selectbox("Colonne Montant HT de la ligne de facture / avoir", df.columns)
+    codeprod_col = st.selectbox("Colonne Code du produit", df.columns)
+    com_col = st.selectbox("Colonne Auteur (commercial)", df.columns)
 
-# Nettoyage des montants (pas de négatif ni zéro, HT)
+# --- SUPPRIME LES "ANNULÉ" ---
+if statut_col:
+    df = df[~df[statut_col].astype(str).str.upper().str.contains("ANNULE")]
+
+# Nettoyage HT (positif seulement)
 df[montant_ht_col] = pd.to_numeric(df[montant_ht_col], errors="coerce").fillna(0)
 df = df[df[montant_ht_col] > 0]
 
-# Section ACCESS+
-st.header("💳 Analyse ACCESS+")
-chk_650 = st.checkbox("Supprimer les ventes ACCESS+ à 650 MAD (colonne M)", value=True)
-df_access = df[df[codeprod_col].astype(str).str.upper().str.startswith("ALLACCESS+")].copy()
-df_access[montant_ttc_col] = pd.to_numeric(df_access[montant_ttc_col], errors="coerce").fillna(0)
-if chk_650:
-    df_access = df_access[df_access[montant_ttc_col].round(2) != 650.00]
+tabs = st.tabs(["Analyse Club ACCESS+", "Analyse Commerciale ACCESS+", "Analyse Waterstation"])
 
-# Suppression des doublons (Nom+Prénom)
-df_access["client_id"] = df_access[nom_col].astype(str).str.strip().str.upper() + " " + df_access[prenom_col].astype(str).str.strip().str.upper()
-df_access = df_access.drop_duplicates("client_id")
+# ----------- TAB 1 : CLUB ACCESS+ -----------
+with tabs[0]:
+    st.header("💳 Analyse Club ACCESS+")
+    chk_650 = st.checkbox("Supprimer les ventes ACCESS+ à 650 MAD (colonne M)", value=True)
+    df_access = df[df[codeprod_col].astype(str).str.upper().str.startswith("ALLACCESS+")].copy()
+    df_access[montant_ttc_col] = pd.to_numeric(df_access[montant_ttc_col], errors="coerce").fillna(0)
+    if chk_650:
+        df_access = df_access[df_access[montant_ttc_col].round(2) != 650.00]
 
-quantite_access = len(df_access)
-st.metric("Quantité Access+ vendue (unique)", quantite_access)
+    # Suppression des doublons (Nom+Prénom)
+    df_access["client_id"] = df_access[nom_col].astype(str).str.strip().str.upper() + " " + df_access[prenom_col].astype(str).str.strip().str.upper()
+    df_access = df_access.drop_duplicates("client_id")
 
-# Tableau ventes par commercial
-tab_acc = df_access.groupby(com_col).agg({"client_id":"count"}).rename(columns={"client_id":"Nb ventes unique"}).sort_values("Nb ventes unique", ascending=False)
-st.dataframe(tab_acc)
+    quantite_access = len(df_access)
+    st.metric("Quantité Access+ vendue (unique)", quantite_access)
 
-# Barplot
-st.markdown("### 📊 Ventes Access+ par commercial")
-if not tab_acc.empty:
-    plt.figure(figsize=(10,4))
-    tab_acc["Nb ventes unique"].plot(kind="bar", color="#409EFF")
-    plt.ylabel("Quantité")
-    plt.xlabel("Commercial")
-    plt.title("Access+ vendus par commercial (unique clients)")
-    plt.tight_layout()
-    st.pyplot(plt.gcf())
-    plt.clf()
-else:
-    st.info("Aucune vente Access+ à afficher.")
+    # Tableau ventes club
+    st.dataframe(df_access[[nom_col, prenom_col, montant_ttc_col, montant_ht_col, codeprod_col]].reset_index(drop=True))
 
-# Section WATERSTATION
-st.header("💧 Analyse WATERSTATION")
-df_ws = df[df[codeprod_col].astype(str).str.lower().str.startswith("waterstation")].copy()
-df_ws["client_id"] = df_ws[nom_col].astype(str).str.strip().str.upper() + " " + df_ws[prenom_col].astype(str).str.strip().str.upper()
-df_ws = df_ws.drop_duplicates("client_id")
+# ----------- TAB 2 : COMMERCIAL ACCESS+ -----------
+with tabs[1]:
+    st.header("👔 Analyse ACCESS+ par commercial")
+    df_access_com = df[df[codeprod_col].astype(str).str.upper().str.startswith("ALLACCESS+")].copy()
+    # (Pas de filtre 650 ici !)
+    df_access_com[montant_ttc_col] = pd.to_numeric(df_access_com[montant_ttc_col], errors="coerce").fillna(0)
+    df_access_com["client_id"] = df_access_com[nom_col].astype(str).str.strip().str.upper() + " " + df_access_com[prenom_col].astype(str).str.strip().str.upper()
+    df_access_com = df_access_com.drop_duplicates(["client_id", com_col])
 
-quantite_ws = len(df_ws)
-st.metric("Quantité Waterstation vendue (unique)", quantite_ws)
+    tab_acc = df_access_com.groupby(com_col).agg({"client_id":"count"}).rename(columns={"client_id":"Nb ventes unique"}).sort_values("Nb ventes unique", ascending=False)
+    st.dataframe(tab_acc)
 
-tab_ws = df_ws.groupby(com_col).agg({"client_id":"count"}).rename(columns={"client_id":"Nb ventes unique"}).sort_values("Nb ventes unique", ascending=False)
-st.dataframe(tab_ws)
+    st.markdown("### 📊 Ventes Access+ par commercial")
+    if not tab_acc.empty:
+        plt.figure(figsize=(10,4))
+        tab_acc["Nb ventes unique"].plot(kind="bar", color="#409EFF")
+        plt.ylabel("Quantité")
+        plt.xlabel("Commercial")
+        plt.title("Access+ vendus par commercial (unique clients)")
+        plt.tight_layout()
+        st.pyplot(plt.gcf())
+        plt.clf()
+    else:
+        st.info("Aucune vente Access+ à afficher.")
 
-st.markdown("### 📊 Ventes Waterstation par commercial")
-if not tab_ws.empty:
-    plt.figure(figsize=(10,4))
-    tab_ws["Nb ventes unique"].plot(kind="bar", color="#25B1E9")
-    plt.ylabel("Quantité")
-    plt.xlabel("Commercial")
-    plt.title("Waterstation vendues par commercial (unique clients)")
-    plt.tight_layout()
-    st.pyplot(plt.gcf())
-    plt.clf()
-else:
-    st.info("Aucune vente Waterstation à afficher.")
+# ----------- TAB 3 : WATERSTATION -----------
+with tabs[2]:
+    st.header("💧 Analyse WATERSTATION")
+    df_ws = df[df[codeprod_col].astype(str).str.lower().str.startswith("waterstation")].copy()
+    df_ws["client_id"] = df_ws[nom_col].astype(str).str.strip().str.upper() + " " + df_ws[prenom_col].astype(str).str.strip().str.upper()
+    df_ws = df_ws.drop_duplicates("client_id")
+    quantite_ws = len(df_ws)
+    st.metric("Quantité Waterstation vendue (unique)", quantite_ws)
+
+    tab_ws = df_ws.groupby(com_col).agg({"client_id":"count"}).rename(columns={"client_id":"Nb ventes unique"}).sort_values("Nb ventes unique", ascending=False)
+    st.dataframe(tab_ws)
+
+    st.markdown("### 📊 Ventes Waterstation par commercial")
+    if not tab_ws.empty:
+        plt.figure(figsize=(10,4))
+        tab_ws["Nb ventes unique"].plot(kind="bar", color="#25B1E9")
+        plt.ylabel("Quantité")
+        plt.xlabel("Commercial")
+        plt.title("Waterstation vendues par commercial (unique clients)")
+        plt.tight_layout()
+        st.pyplot(plt.gcf())
+        plt.clf()
+    else:
+        st.info("Aucune vente Waterstation à afficher.")
