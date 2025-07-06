@@ -72,11 +72,11 @@ def get_col(pattern, error_msg):
         st.stop()
     return cols[0]
 
-col_date = get_col("date", "❌ Colonne date de création introuvable.")
+col_date = get_col("Date de création de la facture", "❌ Colonne date de création introuvable.")
 col_auteur = get_col("auteur", "❌ Colonne Auteur introuvable.")
-col_etat = get_col("etat", "❌ Colonne Etat de la facture ou de l'avoir introuvable.")
-col_mttc = get_col("ttc", "❌ Colonne Montant TTC introuvable.")
-col_mtht = get_col("ht", "❌ Colonne Montant HT introuvable.")
+col_etat = get_col("Etat de la facture ou de l'avoir", "❌ Colonne Etat de la facture ou de l'avoir introuvable.")
+col_mttc = get_col("Montant TTC facture ou avoir", "❌ Colonne Montant TTC introuvable.")
+col_mtht = get_col("Montant HT de la ligne de facture / avoir", "❌ Colonne Montant HT introuvable.")
 col_nom = get_col("nom", "❌ Colonne Nom introuvable (hors prénom).")
 col_prénom = get_col("prénom", "❌ Colonne Prénom introuvable.")
 col_produit = get_col("code du produit", "❌ Colonne Code du produit introuvable.")
