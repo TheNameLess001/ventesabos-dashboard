@@ -70,7 +70,16 @@ if not st.session_state["logged"]:
     show_login()
     st.stop()
 else:
-    import os
+    # Page d'accueil "welcome" une fois connecté
+    col1, col2, col3 = st.columns([2, 5, 2])
+    with col2:
+        try:
+            st.image(LOGO_PATH, width=110)
+        except Exception:
+            st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
+        if lottie_json:
+            st_lottie(lottie_json, height=90, key="fitness-lottie-logged")
+            import os
 
 def change_password(user, db_path=USERS_DB):
     st.subheader("🔒 Changer mon mot de passe")
@@ -104,15 +113,6 @@ def change_password(user, db_path=USERS_DB):
             st.session_state.pop("user", None)
             st.info("Veuillez vous reconnecter avec votre nouveau mot de passe.")
             st.rerun()
-    # Page d'accueil "welcome" une fois connecté
-    col1, col2, col3 = st.columns([2, 5, 2])
-    with col2:
-        try:
-            st.image(LOGO_PATH, width=110)
-        except Exception:
-            st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
-        if lottie_json:
-            st_lottie(lottie_json, height=90, key="fitness-lottie-logged")
     st.markdown("""
     <div style='text-align:center;font-size:2.1em;font-weight:bold;color:#1d2b49;margin-top:5px;'>Bienvenue, {}</div>
     <div style='margin:10px auto 30px auto;text-align:center;max-width:600px;'>
