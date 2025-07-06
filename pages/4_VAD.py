@@ -26,14 +26,33 @@ for enc in ["utf-8", "cp1252", "latin-1"]:
     except Exception:
         continue
 
-df.columns = df.columns.str.strip()
+def find_col(possibles, fallback=None):
+    for c in df.columns:
+        c_l = c.lower()
+        if any(p in c_l for p in possibles):
+            return c
+    if fallback and fallback in df.columns:
+        return fallback
+    # Si rien trouvé, return None
+    return None
 
-nom_col = [c for c in df.columns if c.lower().startswith("nom")][0]
-prenom_col = [c for c in df.columns if c.lower().startswith("prénom") or c.lower().startswith("prenom")][0]
-montant_ttc_col = [c for c in df.columns if "ttc" in c.lower() or "montant" in c.lower() and "ttc" in c.lower() or c.lower() == "m"][0]
-montant_ht_col = [c for c in df.columns if ("montant ht" in c.lower() or c.lower() == "r")][0]
-codeprod_col = [c for c in df.columns if "code produit" in c.lower() or c.lower() == "p"][0]
-com_col = [c for c in df.columns if "commercial" in c.lower() or c.lower().startswith("prénom") and "initial" in c.lower() or c.lower() == "w"][-1]
+    nom_col = find_col(["nom"])
+    prenom_col = find_col(["prénom", "prenom"])
+    montant_ttc_col = find_col(["ttc", "montant ttc"], "M")
+    montant_ht_col = find_col(["montant ht"], "R")
+    codeprod_col = find_col(["code produit"], "P")
+    com_col = find_col(["commercial", "prénom du commercial initial"], "W")
+
+# Vérifie la détection, propose un selectbox si besoin
+if not nom_col or not prenom_col or not montant_ttc_col or not montant_ht_col or not codeprod_col or not com_col:
+    st.warning("Colonnes non détectées automatiquement. Merci de les sélectionner manuellement :")
+    nom_col = st.selectbox("Colonne Nom", df.columns)
+    prenom_col = st.selectbox("Colonne Prénom", df.columns)
+    montant_ttc_col = st.selectbox("Colonne Montant TTC facture ou avoir", df.columns)
+    montant_ht_col = st.selectbox("Colonne Montant HT", df.columns)
+    codeprod_col = st.selectbox("Colonne Code Produit", df.columns)
+    com_col = st.selectbox("Colonne Prénom du commercial initial", df.columns)
+
 
 # Nettoyage des montants (pas de négatif ni zéro, HT)
 df[montant_ht_col] = pd.to_numeric(df[montant_ht_col], errors="coerce").fillna(0)
