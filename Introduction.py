@@ -26,7 +26,7 @@ st.markdown("""
 # === ANIMATED LOGO ===
 def logo_block():
     try:
-        st.image("logo_fitnesspark.png", use_column_width=False, output_format="PNG", caption="", clamp=True)
+        st.image("logo_fitnesspark.png", width=270)
     except Exception:
         st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
 
