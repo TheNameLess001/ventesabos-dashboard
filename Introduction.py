@@ -31,13 +31,32 @@ def logo_block():
         st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
 
 # === LOTTIE ANIMATION
-def load_lottieurl(url):
-    r = requests.get(url)
-    if r.status_code != 200:
-        return None
-    return r.json()
+st.set_page_config(page_title="Introduction", page_icon="🏠")
 
-lottie_url = "https://lottie.host/76ecda50-1707-4eb1-b5fc-6cf5bb118f6e/KjLKGiQGfW.json" # (fitness-animated, can change to your fav)
+def logo_block():
+    try:
+        st.image("logo_fitnesspark.png", width=270)
+    except Exception:
+        st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
+
+def load_lottieurl(url):
+    try:
+        r = requests.get(url)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except Exception:
+        return None
+
+lottie_url = "https://assets10.lottiefiles.com/packages/lf20_kxsd2ytq.json"  # Testé et fiable
+
+logo_block()
+
+lottie_json = load_lottieurl(lottie_url)
+if lottie_json:
+    st_lottie(lottie_json, height=140, key="fitness-lottie")
+else:
+    st.info("⏳ Animation non disponible. (Problème réseau ou lien Lottie)")
 
 # === FAKE DASHBOARD STATS ROTATOR (you can link to real data!)
 fake_stats = [
