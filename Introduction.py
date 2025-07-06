@@ -14,7 +14,7 @@ st.markdown("""
         align-items: center;
         margin-top: 16px;
         margin-bottom: 8px;
-        width: 100%;
+        width: 120%;
     }
     .scroll-instructions {
         max-height: 520px;
