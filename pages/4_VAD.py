@@ -62,15 +62,24 @@ if not vad_file:
 df = safe_read_any(vad_file)
 df.columns = df.columns.str.strip()
 
-# Auto-detect columns
-col_date = [c for c in df.columns if "date" in c.lower()][0]
-col_auteur = [c for c in df.columns if "auteur" in c.lower()][0]
-col_etat = [c for c in df.columns if "etat" in c.lower()][0]
-col_mttc = [c for c in df.columns if "ttc" in c.lower()][0]
-col_mtht = [c for c in df.columns if "ht" in c.lower() and "montant" in c.lower()][0]
-col_nom = [c for c in df.columns if "nom" in c.lower() and not "prenom" in c.lower()][0]
-col_prenom = [c for c in df.columns if "prenom" in c.lower()][0]
-col_produit = [c for c in df.columns if "code produit" in c.lower() or "code du produit" in c.lower()][0]
+st.info("Colonnes trouvées : " + ", ".join(df.columns))
+
+# Robust column detection with errors
+def get_col(pattern, error_msg):
+    cols = [c for c in df.columns if pattern in c.lower()]
+    if not cols:
+        st.error(error_msg + f" (pattern '{pattern}')")
+        st.stop()
+    return cols[0]
+
+col_date = get_col("date", "❌ Colonne date de création introuvable.")
+col_auteur = get_col("auteur", "❌ Colonne Auteur introuvable.")
+col_etat = get_col("etat", "❌ Colonne Etat de la facture ou de l'avoir introuvable.")
+col_mttc = get_col("ttc", "❌ Colonne Montant TTC introuvable.")
+col_mtht = get_col("ht", "❌ Colonne Montant HT introuvable.")
+col_nom = get_col("nom", "❌ Colonne Nom introuvable (hors prénom).")
+col_prenom = get_col("prenom", "❌ Colonne Prénom introuvable.")
+col_produit = get_col("code produit", "❌ Colonne Code du produit introuvable.")
 
 # Cleaning rules
 df = df[df[col_auteur].str.lower() != "automatisme"]
@@ -124,10 +133,13 @@ with tabs[0]:
 # ==== Par Club (Access+, Waterstation) ====
 with tabs[1]:
     st.subheader("🏟️ Analyse Club (Access+, Waterstation)")
+    club_col_candidates = [c for c in df.columns if "club" in c.lower()]
+    if not club_col_candidates:
+        st.error("❌ Colonne club introuvable.")
+        st.stop()
+    club_col = st.selectbox("Sélectionner la colonne club", options=club_col_candidates)
     access_df = df[df[col_produit].str.upper() == "ALLACCESS+"]
     water_df = df[df[col_produit].str.lower() == "waterstation"]
-    # Par Club (TT)
-    club_col = st.selectbox("Sélectionner la colonne club", options=[c for c in df.columns if "club" in c.lower()])
     st.markdown("### Access+ par club")
     acc_club = access_df.groupby(club_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(acc_club.to_frame("Clients Access+ uniques"))
@@ -153,7 +165,11 @@ with tabs[1]:
 # ==== Par Commercial ====
 with tabs[2]:
     st.subheader("🧑‍💼 Analyse Commerciale VAD")
-    commercial_col = st.selectbox("Sélectionner la colonne commercial", options=[c for c in df.columns if "commercial" in c.lower()])
+    commercial_col_candidates = [c for c in df.columns if "commercial" in c.lower()]
+    if not commercial_col_candidates:
+        st.error("❌ Colonne Commercial introuvable.")
+        st.stop()
+    commercial_col = st.selectbox("Sélectionner la colonne commercial", options=commercial_col_candidates)
     vad_com = df.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(vad_com.to_frame("Clients uniques"))
     fig, ax = plt.subplots()
