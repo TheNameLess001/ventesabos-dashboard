@@ -1,137 +1,208 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
 
+# Protection login
 if "logged" not in st.session_state or not st.session_state["logged"]:
     st.warning("Vous devez vous connecter depuis la page d'accueil.")
     st.stop()
 
-st.title("🚰 VAD (Access+ & Waterstation) - Fitness Park")
+st.title("🏆 ANALYSEUR TBO - Fitness Park")
 
-file = st.file_uploader("Importer le fichier VAD (CSV ou Excel)", type=["csv", "xlsx"])
-if not file:
-    st.info("Importez un fichier VAD pour démarrer l'analyse.")
+# Gold branding & style onglets
+TBO_GOLD = "#FFD700"
+st.markdown(f"""
+    <style>
+    .stApp {{ background-color: #fff; }}
+    .block-container {{ padding-top: 2rem; }}
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {{
+        background-color: {TBO_GOLD};
+        color: #222;
+        font-weight:bold;
+        border-radius: 10px 10px 0 0;
+        border-bottom: 3px solid #FFBF00;
+    }}
+    .stTabs [data-baseweb="tab-list"] button {{
+        background-color: #f4f4f4;
+        color: #222;
+        border-radius: 10px 10px 0 0;
+        margin-right: 2px;
+    }}
+    </style>
+""", unsafe_allow_html=True)
+
+def to_excel(df_dict):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        for sheet, df in df_dict.items():
+            df.to_excel(writer, sheet_name=sheet, index=False)
+    output.seek(0)
+    return base64.b64encode(output.read()).decode()
+
+def analyze_tbo(file):
+    product_groups = {
+        "ABONNEMENTS": [
+            "CDD", "CDD1", "CDD12", "CDIAENG", "CDISENG",
+            "SEANCEESSAI", "seancedessaie", "VIP", "OffreSummerBody25",
+            "ULTIMATEEMPLOYE", "HOMEPARK", "1MOFFERT", "EMPLOYE", "REGISTRATION-FEE"
+        ],
+        "ACCESS+": [
+            "ALLACCESS+", "ALLACCESS+BF", "ALLACCESS+YS-cc"
+        ],
+        "COACHING": [
+            "10PT", "15PT", "10PTPREMIUM", "1PT",
+            "DUO15PT", "20PT", "DUO10PT", "SMALLGROUP"
+        ],
+        "GOODIES": [
+            "CADENAS", "CEINTUREMUSCU", "cordeasauterfpk",
+            "gantmusculation", "GOURDEFP", "SAC",
+            "SERVIETTEGRISE", "SERVIETTENOIRE", "SHAKER",
+            "sanglecheville"
+        ],
+        "WATERSTATION": [
+            "waterstation"
+        ],
+        "BOUTIQUE": []
+    }
+    try:
+        xls = pd.ExcelFile(file)
+        turnover_sheet = None
+        for sheet in xls.sheet_names:
+            sheet_lower = sheet.lower()
+            if "chiffre" in sheet_lower or "affaires" in sheet_lower or "ca" in sheet_lower or "ventes" in sheet_lower:
+                turnover_sheet = sheet
+                break
+        if not turnover_sheet:
+            turnover_sheet = xls.sheet_names[-1]
+        df = pd.read_excel(file, sheet_name=turnover_sheet)
+
+        # Trouver la ligne produits/valeurs
+        product_row, value_row = None, None
+        for idx, row in df.iterrows():
+            row_vals = [str(v) for v in row.values]
+            if any("Fitness Park" in val or "Casablanca" in val for val in row_vals):
+                value_row = idx
+                product_row = idx - 1 if idx > 0 else 0
+                break
+        if product_row is None or value_row is None:
+            return None, None, None, None, "Impossible de trouver les lignes de données dans le fichier Excel.", None
+        products = df.iloc[product_row, 3:]
+        values = df.iloc[value_row, 3:]
+        turnover_data = {}
+        for product, value in zip(products, values):
+            if pd.notna(product) and pd.notna(value):
+                product_name = str(product).strip()
+                turnover_data[product_name] = value
+        excel_total = list(turnover_data.values())[-1] if turnover_data else 0
+        if "Total" in turnover_data:
+            excel_total = turnover_data["Total"]
+            del turnover_data["Total"]
+
+        # Catégorisation et totaux
+        group_totals = {g:0 for g in product_groups}
+        group_details = {g:{} for g in product_groups}
+        all_data = []
+        for product, value in turnover_data.items():
+            group = None
+            if "Total" in product:
+                continue
+            for g, prod_list in product_groups.items():
+                if g == "ABONNEMENTS":
+                    if any(product.startswith(prefix) for prefix in ["CDD", "CDI", "SEANCE"]):
+                        group = g
+                        break
+                    if any(prod.lower() in product.lower() for prod in prod_list):
+                        group = g
+                        break
+                if product in prod_list:
+                    group = g
+                    break
+            if not group:
+                group = "BOUTIQUE"
+            group_totals[group] += value
+            group_details[group][product] = value
+            all_data.append({"Groupe": group, "Produit": product, "Valeur": value})
+        calculated_total = sum(group_totals.values())
+        return group_totals, group_details, calculated_total, excel_total, None, all_data
+    except Exception as e:
+        return None, None, None, None, f"Erreur pendant l'analyse : {str(e)}", None
+
+tbo_file = st.file_uploader("Importer un fichier TBO (Excel)", type=["xlsx", "xls"])
+if not tbo_file:
+    st.info("Importez un fichier TBO pour démarrer l'analyse.")
     st.stop()
 
-ext = file.name.split('.')[-1]
-for enc in ["utf-8", "cp1252", "latin-1"]:
-    try:
-        file.seek(0)
-        if ext == "csv":
-            df = pd.read_csv(file, encoding=enc, sep=None, engine="python")
-        else:
-            df = pd.read_excel(file)
-        break
-    except Exception:
-        continue
+group_totals, group_details, calculated_total, excel_total, error, all_data = analyze_tbo(tbo_file)
+if error:
+    st.error(error)
+    st.stop()
 
-df.columns = df.columns.str.strip()
+tabs = st.tabs(["Résumé Global", "Détails par Groupe", "Export"])
 
-# --- NOM EXACT DES COLONNES ---
-def find_col(possibles):
-    for col in df.columns:
-        col_l = col.lower().replace("é", "e").replace("è", "e").replace("ê", "e")
-        for p in possibles:
-            if col_l == p.lower():
-                return col
-    return None
-
-nom_col = find_col(["nom"])
-prenom_col = find_col(["prénom", "prenom"])
-montant_ttc_col = find_col(["montant ttc facture ou avoir"])
-montant_ht_col = find_col(["montant ht de la ligne de facture / avoir"])
-codeprod_col = find_col(["code du produit"])
-com_col = find_col(["auteur"])
-statut_col = None
-for col in df.columns:
-    if "statut" in col.lower() or col.lower() == "f":
-        statut_col = col
-        break
-
-if not all([nom_col, prenom_col, montant_ttc_col, montant_ht_col, codeprod_col, com_col]):
-    st.warning("Colonnes non détectées automatiquement. Merci de les sélectionner manuellement :")
-    nom_col = st.selectbox("Colonne Nom", df.columns)
-    prenom_col = st.selectbox("Colonne Prénom", df.columns)
-    montant_ttc_col = st.selectbox("Colonne Montant TTC facture ou avoir", df.columns)
-    montant_ht_col = st.selectbox("Colonne Montant HT de la ligne de facture / avoir", df.columns)
-    codeprod_col = st.selectbox("Colonne Code du produit", df.columns)
-    com_col = st.selectbox("Colonne Auteur (commercial)", df.columns)
-
-# --- SUPPRIME LES "ANNULÉ" ---
-if statut_col:
-    df = df[~df[statut_col].astype(str).str.upper().str.contains("ANNULE")]
-
-# Nettoyage HT (positif seulement)
-df[montant_ht_col] = pd.to_numeric(df[montant_ht_col], errors="coerce").fillna(0)
-df = df[df[montant_ht_col] > 0]
-
-tabs = st.tabs(["Analyse Club ACCESS+", "Analyse Commerciale ACCESS+", "Analyse Waterstation"])
-
-# ----------- TAB 1 : CLUB ACCESS+ -----------
+# ===== TAB 1 : Résumé Global =====
 with tabs[0]:
-    st.header("💳 Analyse Club ACCESS+")
-    chk_650 = st.checkbox("Supprimer les ventes ACCESS+ à 650 MAD (colonne M)", value=True)
-    df_access = df[df[codeprod_col].astype(str).str.upper().str.startswith("ALLACCESS+")].copy()
-    df_access[montant_ttc_col] = pd.to_numeric(df_access[montant_ttc_col], errors="coerce").fillna(0)
-    if chk_650:
-        df_access = df_access[df_access[montant_ttc_col].round(2) != 650.00]
+    st.subheader("🔎 Résumé du Chiffre d'Affaires TBO")
+    total_warning = abs(calculated_total - excel_total) > 1
 
-    # Suppression des doublons (Nom+Prénom)
-    df_access["client_id"] = df_access[nom_col].astype(str).str.strip().str.upper() + " " + df_access[prenom_col].astype(str).str.strip().str.upper()
-    df_access = df_access.drop_duplicates("client_id")
+    st.markdown("**Total par groupe de produits**")
+    df_totaux = pd.DataFrame([{"Groupe": g, "Total (DH)": total} for g, total in group_totals.items()])
+    st.dataframe(df_totaux.sort_values("Total (DH)", ascending=False).style.format({"Total (DH)": "{:,.2f} DH"}))
 
-    quantite_access = len(df_access)
-    st.metric("Quantité Access+ vendue (unique)", quantite_access)
+    st.markdown("---")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Somme des groupes", f"{calculated_total:,.2f} DH")
+    col2.metric("Total Excel", f"{excel_total:,.2f} DH")
+    diff = calculated_total - excel_total
+    col3.metric("Différence", f"{diff:,.2f} DH", delta_color="inverse" if total_warning else "normal")
 
-    # Tableau ventes club
-    st.dataframe(df_access[[nom_col, prenom_col, montant_ttc_col, montant_ht_col, codeprod_col]].reset_index(drop=True))
+    if total_warning:
+        st.error("⚠️ Attention : Écart significatif détecté entre la somme des groupes et le total Excel.")
 
-# ----------- TAB 2 : COMMERCIAL ACCESS+ -----------
+    # Pie chart
+    st.markdown("### 🥧 Répartition du CA par groupe")
+    fig, ax = plt.subplots(figsize=(7, 5))
+    labels = [g for g, t in group_totals.items() if t > 0]
+    sizes = [t for g, t in group_totals.items() if t > 0]
+    colors = plt.get_cmap("tab20c").colors
+    ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=colors, startangle=90, textprops={'fontsize': 13})
+    ax.axis('equal')
+    st.pyplot(fig)
+
+# ===== TAB 2 : Détail par Groupe =====
 with tabs[1]:
-    st.header("👔 Analyse ACCESS+ par commercial")
-    df_access_com = df[df[codeprod_col].astype(str).str.upper().str.startswith("ALLACCESS+")].copy()
-    # (Pas de filtre 650 ici !)
-    df_access_com[montant_ttc_col] = pd.to_numeric(df_access_com[montant_ttc_col], errors="coerce").fillna(0)
-    df_access_com["client_id"] = df_access_com[nom_col].astype(str).str.strip().str.upper() + " " + df_access_com[prenom_col].astype(str).str.strip().str.upper()
-    df_access_com = df_access_com.drop_duplicates(["client_id", com_col])
+    st.subheader("📑 Détail des ventes par groupe")
+    group_names = [g for g in group_details if group_details[g]]
+    group_sel = st.selectbox("Choisir un groupe", group_names)
+    df_detail = pd.DataFrame([
+        {"Produit": p, "Valeur (DH)": v}
+        for p, v in group_details[group_sel].items()
+    ]).sort_values("Valeur (DH)", ascending=False)
+    st.dataframe(df_detail.style.format({"Valeur (DH)": "{:,.2f} DH"}))
+    st.success(f"Total {group_sel}: {group_totals[group_sel]:,.2f} DH")
 
-    tab_acc = df_access_com.groupby(com_col).agg({"client_id":"count"}).rename(columns={"client_id":"Nb ventes unique"}).sort_values("Nb ventes unique", ascending=False)
-    st.dataframe(tab_acc)
+    # Nouveau : Barplot par produit du groupe sélectionné
+    st.markdown("### 📊 Barplot - Répartition des ventes par produit")
+    plt.figure(figsize=(8, 4))
+    plt.bar(df_detail["Produit"], df_detail["Valeur (DH)"], color="#FFD700")
+    plt.ylabel("Valeur (DH)")
+    plt.xlabel("Produit")
+    plt.title(f"Ventes du groupe {group_sel}")
+    plt.xticks(rotation=45, ha="right", fontsize=10)
+    plt.tight_layout()
+    for idx, row in df_detail.iterrows():
+        plt.text(idx, row["Valeur (DH)"], f"{row['Valeur (DH)']:,.0f}", ha='center', va='bottom', fontsize=9)
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-    st.markdown("### 📊 Ventes Access+ par commercial")
-    if not tab_acc.empty:
-        plt.figure(figsize=(10,4))
-        tab_acc["Nb ventes unique"].plot(kind="bar", color="#409EFF")
-        plt.ylabel("Quantité")
-        plt.xlabel("Commercial")
-        plt.title("Access+ vendus par commercial (unique clients)")
-        plt.tight_layout()
-        st.pyplot(plt.gcf())
-        plt.clf()
-    else:
-        st.info("Aucune vente Access+ à afficher.")
-
-# ----------- TAB 3 : WATERSTATION -----------
+# ===== TAB 3 : Export =====
 with tabs[2]:
-    st.header("💧 Analyse WATERSTATION")
-    df_ws = df[df[codeprod_col].astype(str).str.lower().str.startswith("waterstation")].copy()
-    df_ws["client_id"] = df_ws[nom_col].astype(str).str.strip().str.upper() + " " + df_ws[prenom_col].astype(str).str.strip().str.upper()
-    df_ws = df_ws.drop_duplicates("client_id")
-    quantite_ws = len(df_ws)
-    st.metric("Quantité Waterstation vendue (unique)", quantite_ws)
-
-    tab_ws = df_ws.groupby(com_col).agg({"client_id":"count"}).rename(columns={"client_id":"Nb ventes unique"}).sort_values("Nb ventes unique", ascending=False)
-    st.dataframe(tab_ws)
-
-    st.markdown("### 📊 Ventes Waterstation par commercial")
-    if not tab_ws.empty:
-        plt.figure(figsize=(10,4))
-        tab_ws["Nb ventes unique"].plot(kind="bar", color="#25B1E9")
-        plt.ylabel("Quantité")
-        plt.xlabel("Commercial")
-        plt.title("Waterstation vendues par commercial (unique clients)")
-        plt.tight_layout()
-        st.pyplot(plt.gcf())
-        plt.clf()
-    else:
-        st.info("Aucune vente Waterstation à afficher.")
+    st.subheader("⬇️ Exporter toutes les données")
+    df_all = pd.DataFrame(all_data)
+    excel_data = to_excel({"Résumé Groupes": df_totaux, "Détail": df_all})
+    st.download_button(
+        label="📥 Télécharger toutes les données (Excel)",
+        data=base64.b64decode(excel_data),
+        file_name="TBO_analyse.xlsx"
+    )
