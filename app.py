@@ -70,7 +70,7 @@ else:
         <li>Tu peux toujours changer de page via le menu à gauche.</li>
     </ul>
     <p style="margin-top:18px;font-size:1.1em;"><b>Pour toute question :</b> <a href='mailto:Manager.racine@fitnesspark.ma'>Manager.racine@fitnesspark.ma</a></p>
-     <p style="margin-top:18px;font-size:1.1em;"><b>Pour toute question :</b> <a href='BOUNOIR SAIF EDDINE'>Manager.racine@fitnesspark.ma</a></p>
+     <p style="margin-top:18px;font-size:1.1em;"><b>Pour toute question :</b> <a href='BOUNOIR SAIF EDDINE'>BOUNOIR SAIF EDDINE</a></p>
     </div>
     """.format(st.session_state.get("user", "Utilisateur")), unsafe_allow_html=True)
 
