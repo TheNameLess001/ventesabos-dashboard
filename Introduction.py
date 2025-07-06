@@ -1,20 +1,20 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Introduction", page_icon="🎰")
+st.set_page_config(page_title="Introduction", page_icon="🏠")
 
 LOGO_PATH = "logo_fitnesspark.png"
 USERS_DB = "users_db.csv"
 
-# --- GOLD STYLE & Centered logo & Scrollable bloc ---
 st.markdown("""
     <style>
-    .center-logo {
+    .center-logo-wrap {
         display: flex;
         justify-content: center;
         align-items: center;
         margin-top: 16px;
         margin-bottom: 8px;
+        width: 100%;
     }
     .scroll-instructions {
         max-height: 340px;
@@ -24,6 +24,30 @@ st.markdown("""
         border-radius: 12px;
         box-shadow: 0 2px 16px #ffdc8022;
         margin-bottom: 24px;
+    }
+    /* Modal (popup) CSS */
+    .modal-bg {
+        position: fixed;
+        top:0; left:0; width:100vw; height:100vh;
+        background: rgba(35,35,35,0.40);
+        z-index: 9999;
+        display: flex; justify-content: center; align-items: center;
+    }
+    .modal-content {
+        background: #fff;
+        padding: 32px 24px 24px 24px;
+        border-radius: 15px;
+        min-width: 320px;
+        box-shadow: 0 6px 42px #4443;
+        max-width:90vw;
+    }
+    .modal-content h2 {margin-top:0;color:#1d2b49;}
+    .modal-close {
+        color:#fff; background:#ffbf00;
+        border:none; border-radius:8px;
+        padding:6px 16px; margin-top:16px;
+        font-weight:bold; font-size:1em;
+        cursor:pointer;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -38,46 +62,54 @@ def check_login(username, pwd):
         st.error(f"Erreur chargement BDD utilisateurs : {e}")
         return False
 
-def change_password(user, db_path=USERS_DB):
-    st.subheader("🔒 Changer mon mot de passe")
-    with st.form("change_pwd_form", clear_on_submit=True):
+def show_logo_centered():
+    st.markdown("<div class='center-logo-wrap'>", unsafe_allow_html=True)
+    try:
+        st.image(LOGO_PATH, width=110)
+    except Exception:
+        st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+def pwd_change_modal(user, db_path=USERS_DB):
+    with st.form("change_pwd_form_popup", clear_on_submit=True):
+        st.markdown("<h2>🔒 Changer mon mot de passe</h2>", unsafe_allow_html=True)
         old_pwd = st.text_input("Ancien mot de passe", type="password")
         new_pwd1 = st.text_input("Nouveau mot de passe", type="password")
         new_pwd2 = st.text_input("Confirmer le nouveau mot de passe", type="password")
         submit = st.form_submit_button("Valider")
+    close_modal = st.button("Fermer", key="close_modal", help="Fermer la fenêtre")
+    msg = ""
     if submit:
         df = pd.read_csv(db_path, dtype=str)
         user_row = (df["user"] == user)
         if not user_row.any():
-            st.error("Utilisateur introuvable.")
-            return
-        old_ok = (df.loc[user_row, "password"].iloc[0] == old_pwd)
-        if not old_ok:
-            st.error("Ancien mot de passe incorrect.")
+            msg = "Utilisateur introuvable."
+        elif (df.loc[user_row, "password"].iloc[0] != old_pwd):
+            msg = "Ancien mot de passe incorrect."
         elif not new_pwd1 or not new_pwd2:
-            st.error("Le nouveau mot de passe ne peut pas être vide.")
+            msg = "Le nouveau mot de passe ne peut pas être vide."
         elif new_pwd1 != new_pwd2:
-            st.error("Les nouveaux mots de passe ne correspondent pas.")
+            msg = "Les nouveaux mots de passe ne correspondent pas."
         elif new_pwd1 == old_pwd:
-            st.warning("Le nouveau mot de passe doit être différent de l'ancien.")
+            msg = "Le nouveau mot de passe doit être différent de l'ancien."
         else:
             df.loc[user_row, "password"] = new_pwd1
             df.to_csv(db_path, index=False)
             st.success("Votre mot de passe a été changé avec succès !")
             st.session_state["logged"] = False
             st.session_state.pop("user", None)
+            st.session_state["show_pwd_popup"] = False
             st.info("Veuillez vous reconnecter avec votre nouveau mot de passe.")
-            st.rerun()
+            st.stop()
+        if msg:
+            st.error(msg)
+    if close_modal:
+        st.session_state["show_pwd_popup"] = False
 
 def show_login():
     col1, col2, col3 = st.columns([2,4,2])
     with col2:
-        st.markdown(f"<div class='center-logo'>", unsafe_allow_html=True)
-        try:
-            st.image(LOGO_PATH, width=110)
-        except Exception:
-            st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        show_logo_centered()
     st.markdown('<div style="text-align:center;font-size:2em;font-weight:bold;color:#262730;">Bienvenue sur la BI Suite Fitness Park</div>', unsafe_allow_html=True)
     with st.form("login_form"):
         user = st.text_input("Utilisateur", placeholder="Admin")
@@ -95,6 +127,8 @@ def show_login():
 
 if "logged" not in st.session_state:
     st.session_state["logged"] = False
+if "show_pwd_popup" not in st.session_state:
+    st.session_state["show_pwd_popup"] = False
 
 if not st.session_state["logged"]:
     show_login()
@@ -102,17 +136,29 @@ if not st.session_state["logged"]:
 else:
     col1, col2, col3 = st.columns([2, 5, 2])
     with col2:
-        st.markdown(f"<div class='center-logo'>", unsafe_allow_html=True)
-        try:
-            st.image(LOGO_PATH, width=110)
-        except Exception:
-            st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        show_logo_centered()
     st.markdown(f"""
     <div style='text-align:center;font-size:2.1em;font-weight:bold;color:#1d2b49;margin-top:5px;'>
         Bienvenue, {st.session_state.get("user", "Utilisateur")}
     </div>
     """, unsafe_allow_html=True)
+
+    # --- BOUTONS EN HAUT ---
+    nav_col1, nav_col2, nav_col3 = st.columns([1,1,2])
+    with nav_col1:
+        if st.button("🔒 Changer mon mot de passe"):
+            st.session_state["show_pwd_popup"] = True
+    with nav_col2:
+        if st.button("Déconnexion"):
+            st.session_state["logged"] = False
+            st.session_state.pop("user", None)
+            st.session_state["show_pwd_popup"] = False
+            st.experimental_rerun()
+    with nav_col3:
+        st.markdown(
+            "<a href='mailto:Manager.racine@fitnesspark.ma' style='text-decoration:none;font-weight:bold;color:#555;'>📧 Support technique</a>",
+            unsafe_allow_html=True
+        )
 
     st.markdown("""
     <div class="scroll-instructions">
@@ -135,8 +181,12 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    # --- Changement de mot de passe ---
-    change_password(st.session_state.get("user", ""))
+    # --- POPUP MODAL POUR CHANGEMENT MOT DE PASSE ---
+    if st.session_state.get("show_pwd_popup", False):
+        st.markdown(
+            "<div class='modal-bg'><div class='modal-content'>", unsafe_allow_html=True)
+        pwd_change_modal(st.session_state.get("user", ""))
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
     # Signature
     st.markdown("""
@@ -147,9 +197,3 @@ else:
         </span>
     </div>
     """, unsafe_allow_html=True)
-
-if st.session_state.get("logged", False):
-    if st.sidebar.button("Déconnexion"):
-        st.session_state["logged"] = False
-        st.session_state.pop("user", None)
-        st.rerun()
