@@ -76,8 +76,8 @@ with st.expander("🛠️ Sélectionner les colonnes à utiliser", expanded=True
     col_produit = st.selectbox("Colonne Code du produit", options=df.columns)
 
 # Cleaning rules
-df = df[df[col_auteur].str.lower() != "automatisme"]
-df = df[df[col_etat].str.lower() != "annulé"]
+df = df[df[col_auteur].astype(str).str.lower() != "automatisme"]
+df = df[df[col_etat].astype(str).str.lower() != "annulé"]
 df = df[df[col_mtht] > 0]
 
 # Client unique par Nom+Prénom
@@ -104,8 +104,8 @@ with tabs[0]:
     st.write("Nombre de clients uniques :", df['Client_Unique'].nunique())
     st.write("Montant TTC total :", f"{df[col_mttc].sum():,.0f} MAD")
     st.write("Montant HT total :", f"{df[col_mtht].sum():,.0f} MAD")
-    st.write("Nombre de lignes Access+ :", (df[col_produit].str.upper() == "ALLACCESS+").sum())
-    st.write("Nombre de lignes Waterstation :", (df[col_produit].str.lower() == "waterstation").sum())
+    st.write("Nombre de lignes Access+ :", (df[col_produit].astype(str).str.upper() == "ALLACCESS+").sum())
+    st.write("Nombre de lignes Waterstation :", (df[col_produit].astype(str).str.lower() == "waterstation").sum())
     # Graph TTC
     st.markdown("### Pie Chart - Répartition des produits (TT)")
     top_prod = df.groupby(col_produit)[col_mttc].sum().sort_values(ascending=False).head(8)
@@ -132,8 +132,8 @@ with tabs[1]:
     if not club_col_candidates:
         club_col_candidates = df.columns
     club_col = st.selectbox("Sélectionner la colonne club", options=club_col_candidates)
-    access_df = df[df[col_produit].str.upper() == "ALLACCESS+"]
-    water_df = df[df[col_produit].str.lower() == "waterstation"]
+    access_df = df[df[col_produit].astype(str).str.upper() == "ALLACCESS+"]
+    water_df = df[df[col_produit].astype(str).str.lower() == "waterstation"]
     st.markdown("### Access+ par club")
     acc_club = access_df.groupby(club_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(acc_club.to_frame("Clients Access+ uniques"))
