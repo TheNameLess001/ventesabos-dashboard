@@ -212,6 +212,8 @@ with tabs[2]:
     st.subheader("🧑‍💼 Analyse Commerciale VAD")
     auteurs_com = st.multiselect("Filtrer par Auteur (Commerciaux)", all_auteurs, default=all_auteurs, key="auteurs_com")
     commercial_df = df[df[col_auteur].isin(auteurs_com)]
+    
+    # Table globale clients uniques par commercial
     vad_com = commercial_df.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(vad_com.to_frame("Clients uniques"))
     fig, ax = plt.subplots()
@@ -221,6 +223,21 @@ with tabs[2]:
     plt.tight_layout()
     st.pyplot(fig)
     plt.clf()
+
+    # === Détail Access+ / Waterstation par commercial ===
+    st.markdown("### Détail Access+ et Waterstation par commercial")
+    access_com = commercial_df[commercial_df[col_produit].astype(str).str.upper() == "ALLACCESS+"]
+    water_com = commercial_df[commercial_df[col_produit].astype(str).str.lower() == "waterstation"]
+
+    # Table Access+ par commercial
+    access_detail = access_com.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False).rename("Clients Access+ uniques")
+    st.write("#### Access+ par commercial")
+    st.dataframe(access_detail.to_frame())
+
+    # Table Waterstation par commercial
+    water_detail = water_com.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False).rename("Clients Waterstation uniques")
+    st.write("#### Waterstation par commercial")
+    st.dataframe(water_detail.to_frame())
 
 # ==== Export ====
 with tabs[3]:
