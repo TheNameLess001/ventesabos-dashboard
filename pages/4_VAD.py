@@ -62,24 +62,18 @@ if not vad_file:
 df = safe_read_any(vad_file)
 df.columns = df.columns.str.strip()
 
-st.info("Colonnes trouvées : " + ", ".join(df.columns))
+st.info("Colonnes disponibles : " + ", ".join(df.columns))
 
-# Robust column detection with errors
-def get_col(pattern, error_msg):
-    cols = [c for c in df.columns if pattern in c.lower()]
-    if not cols:
-        st.error(error_msg + f" (pattern '{pattern}')")
-        st.stop()
-    return cols[0]
-
-col_date = get_col("date", "❌ Colonne date de création introuvable.")
-col_auteur = get_col("auteur", "❌ Colonne Auteur introuvable.")
-col_etat = get_col("etat", "❌ Colonne Etat de la facture ou de l'avoir introuvable.")
-col_mttc = get_col("ttc", "❌ Colonne Montant TTC introuvable.")
-col_mtht = get_col("ht", "❌ Colonne Montant HT introuvable.")
-col_nom = get_col("nom", "❌ Colonne Nom introuvable (hors prénom).")
-col_prénom = get_col("prénom", "❌ Colonne Prénom introuvable.")
-col_produit = get_col("code produit", "❌ Colonne Code du produit introuvable.")
+# Sélection manuelle par l'utilisateur
+with st.expander("🛠️ Sélectionner les colonnes à utiliser", expanded=True):
+    col_date = st.selectbox("Colonne date de création", options=df.columns)
+    col_auteur = st.selectbox("Colonne Auteur", options=df.columns)
+    col_etat = st.selectbox("Colonne Etat de la facture ou de l'avoir", options=df.columns)
+    col_mttc = st.selectbox("Colonne Montant TTC", options=df.columns)
+    col_mtht = st.selectbox("Colonne Montant HT", options=df.columns)
+    col_nom = st.selectbox("Colonne Nom (hors prénom)", options=df.columns)
+    col_prenom = st.selectbox("Colonne Prénom", options=df.columns)
+    col_produit = st.selectbox("Colonne Code du produit", options=df.columns)
 
 # Cleaning rules
 df = df[df[col_auteur].str.lower() != "automatisme"]
@@ -87,7 +81,7 @@ df = df[df[col_etat].str.lower() != "annulé"]
 df = df[df[col_mtht] > 0]
 
 # Client unique par Nom+Prénom
-df['Client_Unique'] = (df[col_nom].astype(str).str.strip() + " " + df[col_prénom].astype(str).str.strip()).str.upper()
+df['Client_Unique'] = (df[col_nom].astype(str).str.strip() + " " + df[col_prenom].astype(str).str.strip()).str.upper()
 df['Date'] = pd.to_datetime(df[col_date], dayfirst=True, errors='coerce')
 
 # Filtres interactifs
@@ -133,10 +127,10 @@ with tabs[0]:
 # ==== Par Club (Access+, Waterstation) ====
 with tabs[1]:
     st.subheader("🏟️ Analyse Club (Access+, Waterstation)")
+    # Sélection club
     club_col_candidates = [c for c in df.columns if "club" in c.lower()]
     if not club_col_candidates:
-        st.error("❌ Colonne club introuvable.")
-        st.stop()
+        club_col_candidates = df.columns
     club_col = st.selectbox("Sélectionner la colonne club", options=club_col_candidates)
     access_df = df[df[col_produit].str.upper() == "ALLACCESS+"]
     water_df = df[df[col_produit].str.lower() == "waterstation"]
@@ -165,10 +159,10 @@ with tabs[1]:
 # ==== Par Commercial ====
 with tabs[2]:
     st.subheader("🧑‍💼 Analyse Commerciale VAD")
+    # Sélection commerciale
     commercial_col_candidates = [c for c in df.columns if "commercial" in c.lower()]
     if not commercial_col_candidates:
-        st.error("❌ Colonne Commercial introuvable.")
-        st.stop()
+        commercial_col_candidates = df.columns
     commercial_col = st.selectbox("Sélectionner la colonne commercial", options=commercial_col_candidates)
     vad_com = df.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(vad_com.to_frame("Clients uniques"))
