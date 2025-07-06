@@ -1,23 +1,12 @@
 import streamlit as st
-from streamlit_lottie import st_lottie
 import pandas as pd
 import requests
+from streamlit_lottie import st_lottie
 
 st.set_page_config(page_title="Introduction", page_icon="🏠")
 
 LOGO_PATH = "logo_fitnesspark.png"
 USERS_DB = "users_db.csv"  # CSV des utilisateurs
-
-# --- STYLE GOLD ---
-st.markdown("""
-    <style>
-    .small-logo { animation: fadeIn 2.1s; display: block; margin-left:auto; margin-right:auto; margin-bottom: 10px;}
-    @keyframes fadeIn {
-        0% {opacity: 0;}
-        100% {opacity: 1;}
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 def check_login(username, pwd):
     try:
@@ -38,8 +27,18 @@ def load_lottieurl(url):
     except Exception:
         return None
 
-lottie_url = "https://assets10.lottiefiles.com/packages/lf20_kxsd2ytq.json"  # (animation fitness, peut changer)
+lottie_url = "https://assets10.lottiefiles.com/packages/lf20_kxsd2ytq.json"
 lottie_json = load_lottieurl(lottie_url)
+
+st.markdown("""
+    <style>
+    .small-logo { animation: fadeIn 2.1s; display: block; margin-left:auto; margin-right:auto; margin-bottom: 10px;}
+    @keyframes fadeIn {
+        0% {opacity: 0;}
+        100% {opacity: 1;}
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 def show_login():
     col1, col2, col3 = st.columns([2,4,2])
@@ -48,8 +47,6 @@ def show_login():
             st.image(LOGO_PATH, width=110)
         except Exception:
             st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
-        if lottie_json:
-            st_lottie(lottie_json, height=90, key="fitness-lottie")
     st.markdown('<div style="text-align:center;font-size:2em;font-weight:bold;color:#262730;">Bienvenue sur la BI Suite Fitness Park</div>', unsafe_allow_html=True)
     with st.form("login_form"):
         user = st.text_input("Utilisateur", placeholder="Admin")
@@ -101,21 +98,18 @@ else:
         <li>Tu peux toujours changer de page via le menu à gauche.</li>
     </ul>
     <p style="margin-top:18px;font-size:1.1em;"><b>Besoin d'aide ?</b> <a href='mailto:Manager.racine@fitnesspark.ma'>Manager.racine@fitnesspark.ma</a></p>
-    <p style="margin-top:18px;font-size:1.1em;"><a href='Contact'>FPK CASA 1</a></p>
     </div>
     """.format(st.session_state.get("user", "Utilisateur")), unsafe_allow_html=True)
 
-    # Signature
     st.markdown("""
     <div style='text-align:center;margin-top:60px;'>
         <hr style='border:0.5px solid #eee'>
         <span style="color:#888;font-family:monospace;font-size:1em;">
-            <b>SBN PY</b> 
+            <b>SBN PY</b> • BI Suite Fitness Park
         </span>
     </div>
     """, unsafe_allow_html=True)
 
-# Bouton de déconnexion (toujours affiché)
 if st.session_state.get("logged", False):
     if st.sidebar.button("Déconnexion"):
         st.session_state["logged"] = False
