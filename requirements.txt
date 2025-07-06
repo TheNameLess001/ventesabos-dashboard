@@ -3,4 +3,5 @@ pandas
 matplotlib
 openpyxl
 xlsxwriter
-pip install streamlit-lottie
+streamlit
+streamlit-lottie
