@@ -203,3 +203,23 @@ st.download_button(
     data=base64.b64decode(excel_data),
     file_name="analyse_abos.xlsx"
 )
+def resume_stats(df):
+    # (voir bloc ci-dessus)
+
+if st.button("🧠 Générer l’analyse automatique"):
+    st.info("Génération de l'analyse, merci de patienter...")
+    prompt = f"""Tu es un expert en gestion de clubs de sport Fitness Park.
+Voici un résumé d’indicateurs :
+{resume_stats(df)}
+
+Rédige une analyse synthétique et professionnelle pour un manager Fitness Park, avec conseils ou recommandations si nécessaire."""
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    result = response.choices[0].message["content"]
+    st.markdown("### 📝 Analyse automatique :")
+    st.success(result)
+
+# st.download_button(...) etc.
