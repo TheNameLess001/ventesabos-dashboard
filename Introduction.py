@@ -79,40 +79,6 @@ else:
             st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
         if lottie_json:
             st_lottie(lottie_json, height=90, key="fitness-lottie-logged")
-            import os
-
-def change_password(user, db_path=USERS_DB):
-    st.subheader("🔒 Changer mon mot de passe")
-    with st.form("change_pwd_form", clear_on_submit=True):
-        old_pwd = st.text_input("Ancien mot de passe", type="password")
-        new_pwd1 = st.text_input("Nouveau mot de passe", type="password")
-        new_pwd2 = st.text_input("Confirmer le nouveau mot de passe", type="password")
-        submit = st.form_submit_button("Valider")
-    if submit:
-        # Recharge BDD
-        df = pd.read_csv(db_path, dtype=str)
-        user_row = (df["user"] == user)
-        if not user_row.any():
-            st.error("Utilisateur introuvable.")
-            return
-        old_ok = (df.loc[user_row, "password"].iloc[0] == old_pwd)
-        if not old_ok:
-            st.error("Ancien mot de passe incorrect.")
-        elif not new_pwd1 or not new_pwd2:
-            st.error("Le nouveau mot de passe ne peut pas être vide.")
-        elif new_pwd1 != new_pwd2:
-            st.error("Les nouveaux mots de passe ne correspondent pas.")
-        elif new_pwd1 == old_pwd:
-            st.warning("Le nouveau mot de passe doit être différent de l'ancien.")
-        else:
-            df.loc[user_row, "password"] = new_pwd1
-            # Sauvegarde SÛRE
-            df.to_csv(db_path, index=False)
-            st.success("Votre mot de passe a été changé avec succès !")
-            st.session_state["logged"] = False
-            st.session_state.pop("user", None)
-            st.info("Veuillez vous reconnecter avec votre nouveau mot de passe.")
-            st.rerun()
     st.markdown("""
     <div style='text-align:center;font-size:2.1em;font-weight:bold;color:#1d2b49;margin-top:5px;'>Bienvenue, {}</div>
     <div style='margin:10px auto 30px auto;text-align:center;max-width:600px;'>
