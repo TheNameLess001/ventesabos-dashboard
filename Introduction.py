@@ -121,7 +121,7 @@ def show_login():
         if check_login(user, pwd):
             st.session_state["logged"] = True
             st.session_state["user"] = user
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Identifiants incorrects.")
 
