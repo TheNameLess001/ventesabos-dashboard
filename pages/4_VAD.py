@@ -4,21 +4,19 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
 
-# Protection login
 if "logged" not in st.session_state or not st.session_state["logged"]:
     st.warning("Vous devez vous connecter depuis la page d'accueil.")
     st.stop()
 
-st.title("🏆 ANALYSEUR TBO - Fitness Park")
+st.title("💎 ANALYSEUR VAD - Fitness Park")
 
-# Gold branding & style onglets
-TBO_GOLD = "#FFD700"
+VAD_GOLD = "#FFD700"
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #fff; }}
     .block-container {{ padding-top: 2rem; }}
     .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {{
-        background-color: {TBO_GOLD};
+        background-color: {VAD_GOLD};
         color: #222;
         font-weight:bold;
         border-radius: 10px 10px 0 0;
@@ -41,127 +39,68 @@ def to_excel(df_dict):
     output.seek(0)
     return base64.b64encode(output.read()).decode()
 
-def analyze_tbo(file):
-    product_groups = {
-        "ABONNEMENTS": [
-            "CDD", "CDD1", "CDD12", "CDIAENG", "CDISENG",
-            "SEANCEESSAI", "seancedessaie", "VIP", "OffreSummerBody25",
-            "ULTIMATEEMPLOYE", "HOMEPARK", "1MOFFERT", "EMPLOYE", "REGISTRATION-FEE"
-        ],
-        "ACCESS+": [
-            "ALLACCESS+", "ALLACCESS+BF", "ALLACCESS+YS-cc"
-        ],
-        "COACHING": [
-            "10PT", "15PT", "10PTPREMIUM", "1PT",
-            "DUO15PT", "20PT", "DUO10PT", "SMALLGROUP"
-        ],
-        "GOODIES": [
-            "CADENAS", "CEINTUREMUSCU", "cordeasauterfpk",
-            "gantmusculation", "GOURDEFP", "SAC",
-            "SERVIETTEGRISE", "SERVIETTENOIRE", "SHAKER",
-            "sanglecheville"
-        ],
-        "WATERSTATION": [
-            "waterstation"
-        ],
-        "BOUTIQUE": []
-    }
+def read_vad_file(file):
+    # Auto Excel/CSV import (sans crash)
     try:
-        xls = pd.ExcelFile(file)
-        turnover_sheet = None
-        for sheet in xls.sheet_names:
-            sheet_lower = sheet.lower()
-            if "chiffre" in sheet_lower or "affaires" in sheet_lower or "ca" in sheet_lower or "ventes" in sheet_lower:
-                turnover_sheet = sheet
-                break
-        if not turnover_sheet:
-            turnover_sheet = xls.sheet_names[-1]
-        df = pd.read_excel(file, sheet_name=turnover_sheet)
-
-        # Trouver la ligne produits/valeurs
-        product_row, value_row = None, None
-        for idx, row in df.iterrows():
-            row_vals = [str(v) for v in row.values]
-            if any("Fitness Park" in val or "Casablanca" in val for val in row_vals):
-                value_row = idx
-                product_row = idx - 1 if idx > 0 else 0
-                break
-        if product_row is None or value_row is None:
-            return None, None, None, None, "Impossible de trouver les lignes de données dans le fichier Excel.", None
-        products = df.iloc[product_row, 3:]
-        values = df.iloc[value_row, 3:]
-        turnover_data = {}
-        for product, value in zip(products, values):
-            if pd.notna(product) and pd.notna(value):
-                product_name = str(product).strip()
-                turnover_data[product_name] = value
-        excel_total = list(turnover_data.values())[-1] if turnover_data else 0
-        if "Total" in turnover_data:
-            excel_total = turnover_data["Total"]
-            del turnover_data["Total"]
-
-        # Catégorisation et totaux
-        group_totals = {g:0 for g in product_groups}
-        group_details = {g:{} for g in product_groups}
-        all_data = []
-        for product, value in turnover_data.items():
-            group = None
-            if "Total" in product:
-                continue
-            for g, prod_list in product_groups.items():
-                if g == "ABONNEMENTS":
-                    if any(product.startswith(prefix) for prefix in ["CDD", "CDI", "SEANCE"]):
-                        group = g
-                        break
-                    if any(prod.lower() in product.lower() for prod in prod_list):
-                        group = g
-                        break
-                if product in prod_list:
-                    group = g
+        ext = file.name.split('.')[-1].lower()
+        if ext in ["xlsx", "xls"]:
+            df = pd.read_excel(file)
+        elif ext == "csv":
+            # Essaye plusieurs encodages pour CSV
+            for enc in ["utf-8", "cp1252", "latin-1"]:
+                try:
+                    file.seek(0)
+                    df = pd.read_csv(file, encoding=enc, sep=None, engine='python')
                     break
-            if not group:
-                group = "BOUTIQUE"
-            group_totals[group] += value
-            group_details[group][product] = value
-            all_data.append({"Groupe": group, "Produit": product, "Valeur": value})
-        calculated_total = sum(group_totals.values())
-        return group_totals, group_details, calculated_total, excel_total, None, all_data
+                except Exception:
+                    continue
+            else:
+                return None, "Erreur de lecture du fichier CSV."
+        else:
+            return None, "Format non supporté."
+        return df, None
     except Exception as e:
-        return None, None, None, None, f"Erreur pendant l'analyse : {str(e)}", None
+        return None, f"Erreur : {e}"
 
-tbo_file = st.file_uploader("Importer un fichier TBO (Excel)", type=["xlsx", "xls"])
-if not tbo_file:
-    st.info("Importez un fichier TBO pour démarrer l'analyse.")
+def analyze_vad(df):
+    # À adapter selon ta logique métier VAD (remplace/complète à ta sauce)
+    # Suppose ici qu’on a des colonnes ‘Groupe’, ‘Produit’, ‘Valeur’ 
+    # Si ce n’est pas le cas, adapte l’analyse !
+    if not {'Groupe','Produit','Valeur'}.issubset(df.columns):
+        return None, None, None, "Fichier non conforme (attendu : colonnes 'Groupe','Produit','Valeur')"
+    group_totals = df.groupby('Groupe')['Valeur'].sum().to_dict()
+    group_details = {g:df[df['Groupe']==g][['Produit','Valeur']].set_index('Produit')['Valeur'].to_dict() for g in group_totals}
+    all_data = df.to_dict('records')
+    total = df['Valeur'].sum()
+    return group_totals, group_details, total, None
+
+vad_file = st.file_uploader("Importer un fichier VAD (Excel ou CSV)", type=["xlsx", "xls", "csv"])
+if not vad_file:
+    st.info("Importez un fichier VAD pour démarrer l'analyse.")
     st.stop()
 
-group_totals, group_details, calculated_total, excel_total, error, all_data = analyze_tbo(tbo_file)
-if error:
-    st.error(error)
+df_vad, vad_err = read_vad_file(vad_file)
+if vad_err:
+    st.error(vad_err)
+    st.stop()
+
+group_totals, group_details, total_vad, vad_analyse_err = analyze_vad(df_vad)
+if vad_analyse_err:
+    st.error(vad_analyse_err)
+    st.dataframe(df_vad)
     st.stop()
 
 tabs = st.tabs(["Résumé Global", "Détails par Groupe", "Export"])
 
 # ===== TAB 1 : Résumé Global =====
 with tabs[0]:
-    st.subheader("🔎 Résumé du Chiffre d'Affaires TBO")
-    total_warning = abs(calculated_total - excel_total) > 1
-
-    st.markdown("**Total par groupe de produits**")
-    df_totaux = pd.DataFrame([{"Groupe": g, "Total (DH)": total} for g, total in group_totals.items()])
+    st.subheader("🔎 Résumé Global VAD")
+    df_totaux = pd.DataFrame([{"Groupe": g, "Total (DH)": t} for g, t in group_totals.items()])
     st.dataframe(df_totaux.sort_values("Total (DH)", ascending=False).style.format({"Total (DH)": "{:,.2f} DH"}))
-
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Somme des groupes", f"{calculated_total:,.2f} DH")
-    col2.metric("Total Excel", f"{excel_total:,.2f} DH")
-    diff = calculated_total - excel_total
-    col3.metric("Différence", f"{diff:,.2f} DH", delta_color="inverse" if total_warning else "normal")
-
-    if total_warning:
-        st.error("⚠️ Attention : Écart significatif détecté entre la somme des groupes et le total Excel.")
+    st.markdown(f"**Total global : {total_vad:,.2f} DH**")
 
     # Pie chart
-    st.markdown("### 🥧 Répartition du CA par groupe")
+    st.markdown("### 🥧 Répartition par groupe")
     fig, ax = plt.subplots(figsize=(7, 5))
     labels = [g for g, t in group_totals.items() if t > 0]
     sizes = [t for g, t in group_totals.items() if t > 0]
@@ -182,7 +121,7 @@ with tabs[1]:
     st.dataframe(df_detail.style.format({"Valeur (DH)": "{:,.2f} DH"}))
     st.success(f"Total {group_sel}: {group_totals[group_sel]:,.2f} DH")
 
-    # Nouveau : Barplot par produit du groupe sélectionné
+    # Barplot par produit du groupe sélectionné
     st.markdown("### 📊 Barplot - Répartition des ventes par produit")
     plt.figure(figsize=(8, 4))
     plt.bar(df_detail["Produit"], df_detail["Valeur (DH)"], color="#FFD700")
@@ -199,10 +138,9 @@ with tabs[1]:
 # ===== TAB 3 : Export =====
 with tabs[2]:
     st.subheader("⬇️ Exporter toutes les données")
-    df_all = pd.DataFrame(all_data)
-    excel_data = to_excel({"Résumé Groupes": df_totaux, "Détail": df_all})
+    excel_data = to_excel({"Résumé Groupes": df_totaux, "Détail": df_vad})
     st.download_button(
         label="📥 Télécharger toutes les données (Excel)",
         data=base64.b64decode(excel_data),
-        file_name="TBO_analyse.xlsx"
+        file_name="VAD_analyse.xlsx"
     )
