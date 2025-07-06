@@ -208,4 +208,3 @@ with tabs[3]:
         data=base64.b64decode(excel_data),
         file_name="VAD_analyse.xlsx"
     )
-
