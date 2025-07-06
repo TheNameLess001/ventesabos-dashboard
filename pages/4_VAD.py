@@ -99,11 +99,14 @@ tab_ws = df_ws.groupby(com_col).agg({"client_id":"count"}).rename(columns={"clie
 st.dataframe(tab_ws)
 
 st.markdown("### 📊 Ventes Waterstation par commercial")
-plt.figure(figsize=(10,4))
-tab_ws["Nb ventes unique"].plot(kind="bar", color="#25B1E9")
-plt.ylabel("Quantité")
-plt.xlabel("Commercial")
-plt.title("Waterstation vendues par commercial (unique clients)")
-plt.tight_layout()
-st.pyplot(plt.gcf())
-plt.clf()
+if not tab_ws.empty:
+    plt.figure(figsize=(10,4))
+    tab_ws["Nb ventes unique"].plot(kind="bar", color="#25B1E9")
+    plt.ylabel("Quantité")
+    plt.xlabel("Commercial")
+    plt.title("Waterstation vendues par commercial (unique clients)")
+    plt.tight_layout()
+    st.pyplot(plt.gcf())
+    plt.clf()
+else:
+    st.info("Aucune vente Waterstation à afficher.")
