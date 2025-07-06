@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Introduction", page_icon="🏠")
+st.set_page_config(page_title="Introduction", page_icon="🎰")
 
 LOGO_PATH = "logo_fitnesspark.png"
 USERS_DB = "users_db.csv"
