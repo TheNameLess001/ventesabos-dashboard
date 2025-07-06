@@ -39,7 +39,6 @@ else:
         st.info("Merci d'importer un fichier pour commencer.")
         st.stop()
 
-# 👉 Ici tu peux continuer avec ton code analytique en utilisant df.
 # ========== PROTECTION LOGIN ==========
 if "logged" not in st.session_state or not st.session_state["logged"]:
     st.warning("Vous devez vous connecter depuis la page d'accueil.")
