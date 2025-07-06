@@ -22,7 +22,7 @@ def show_login():
             st.image(LOGO_PATH, width=200)
         except Exception:
             st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
-    st.markdown('<div style="text-align:center;font-size:2em;font-weight:bold;color:#262730;">Bienvenue sur la BI Suite Fitness Park</div>', unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center;font-size:2em;font-weight:bold;color:#262730;">Bienvenue sur la Dashboard FPK</div>', unsafe_allow_html=True)
     with st.form("login_form"):
         user = st.text_input("Utilisateur", placeholder="Admin")
         pwd = st.text_input("Mot de passe", type="password")
