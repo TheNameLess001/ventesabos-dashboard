@@ -1,19 +1,29 @@
 import streamlit as st
 import pandas as pd
-import os
 
-st.set_page_config(page_title="Introduction", page_icon="🏠")
+st.set_page_config(page_title="Introduction", page_icon="🎰")
 
 LOGO_PATH = "logo_fitnesspark.png"
 USERS_DB = "users_db.csv"
 
-# --- STYLE GOLD ---
+# --- GOLD STYLE & Centered logo & Scrollable bloc ---
 st.markdown("""
     <style>
-    .small-logo { animation: fadeIn 2.1s; display: block; margin-left:auto; margin-right:auto; margin-bottom: 10px;}
-    @keyframes fadeIn {
-        0% {opacity: 0;}
-        100% {opacity: 1;}
+    .center-logo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+    .scroll-instructions {
+        max-height: 340px;
+        overflow-y: auto;
+        padding: 16px 22px;
+        background: #fffbe6;
+        border-radius: 12px;
+        box-shadow: 0 2px 16px #ffdc8022;
+        margin-bottom: 24px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -62,10 +72,12 @@ def change_password(user, db_path=USERS_DB):
 def show_login():
     col1, col2, col3 = st.columns([2,4,2])
     with col2:
+        st.markdown(f"<div class='center-logo'>", unsafe_allow_html=True)
         try:
             st.image(LOGO_PATH, width=110)
         except Exception:
             st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     st.markdown('<div style="text-align:center;font-size:2em;font-weight:bold;color:#262730;">Bienvenue sur la BI Suite Fitness Park</div>', unsafe_allow_html=True)
     with st.form("login_form"):
         user = st.text_input("Utilisateur", placeholder="Admin")
@@ -77,7 +89,7 @@ def show_login():
         if check_login(user, pwd):
             st.session_state["logged"] = True
             st.session_state["user"] = user
-            st.experimental_rerun()  # Rerun direct, pas de spinner Streamlit!
+            st.experimental_rerun()
         else:
             st.error("Identifiants incorrects.")
 
@@ -88,18 +100,22 @@ if not st.session_state["logged"]:
     show_login()
     st.stop()
 else:
-    # Page d'accueil "welcome" une fois connecté
     col1, col2, col3 = st.columns([2, 5, 2])
     with col2:
+        st.markdown(f"<div class='center-logo'>", unsafe_allow_html=True)
         try:
             st.image(LOGO_PATH, width=110)
         except Exception:
             st.markdown("<h2 style='text-align:center;'>Fitness Park</h2>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     st.markdown(f"""
     <div style='text-align:center;font-size:2.1em;font-weight:bold;color:#1d2b49;margin-top:5px;'>
         Bienvenue, {st.session_state.get("user", "Utilisateur")}
     </div>
-    <div style='margin:10px auto 30px auto;text-align:center;max-width:600px;'>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="scroll-instructions">
     <h4>📄 <b>Description des pages :</b></h4>
     <ul style="text-align:left;">
         <li><b>Abonnements</b> : Analyse ventes abos, parts, comparatifs clubs & commerciaux, podium vendeurs.</li>
