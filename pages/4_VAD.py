@@ -88,11 +88,15 @@ def clean_money(s):
         .str.replace(",", ".", regex=False)       # Virgules --> points
         .str.replace("MAD", "", regex=False)
         .str.replace("dh", "", regex=False)
+        .str.replace("-", "", regex=False)        # On enlève les tirets (pour NA, valeurs bizarres)
         .str.extract(r'([-+]?\d*\.?\d+)', expand=False)   # Garde chiffres/point/signes
     )
 
 df[col_mtht] = pd.to_numeric(clean_money(df[col_mtht]), errors="coerce")
 df[col_mttc] = pd.to_numeric(clean_money(df[col_mttc]), errors="coerce")
+
+# Supprime les lignes non convertibles en nombre (float)
+df = df[df[col_mtht].notnull() & df[col_mttc].notnull()]
 
 df = df[df[col_mtht] > 0]
 
