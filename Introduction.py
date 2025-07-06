@@ -153,7 +153,7 @@ else:
             st.session_state["logged"] = False
             st.session_state.pop("user", None)
             st.session_state["show_pwd_popup"] = False
-            st.experimental_rerun()
+            st.rerun()
     with nav_col3:
         st.markdown(
             "<a href='mailto:Manager.racine@fitnesspark.ma' style='text-decoration:none;font-weight:bold;color:#555;'>📧 Support technique</a>",
