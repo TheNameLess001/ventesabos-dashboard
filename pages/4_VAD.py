@@ -60,9 +60,10 @@ df = df[df[montant_ht_col] > 0]
 # Section ACCESS+
 st.header("💳 Analyse ACCESS+")
 chk_650 = st.checkbox("Supprimer les ventes ACCESS+ à 650 MAD (colonne M)", value=True)
-df_access = df[df[codeprod_col].astype(str).str.upper().str.startswith("ALLACCESS+")]
+df_access = df[df[codeprod_col].astype(str).str.upper().str.startswith("ALLACCESS+")].copy()
+df_access[montant_ttc_col] = pd.to_numeric(df_access[montant_ttc_col], errors="coerce").fillna(0)
 if chk_650:
-    df_access = df_access[df_access[montant_ttc_col] != 650]
+    df_access = df_access[df_access[montant_ttc_col].round(2) != 650.00]
 
 # Suppression des doublons (Nom+Prénom)
 df_access["client_id"] = df_access[nom_col].astype(str).str.strip().str.upper() + " " + df_access[prenom_col].astype(str).str.strip().str.upper()
@@ -77,18 +78,21 @@ st.dataframe(tab_acc)
 
 # Barplot
 st.markdown("### 📊 Ventes Access+ par commercial")
-plt.figure(figsize=(10,4))
-tab_acc["Nb ventes unique"].plot(kind="bar", color="#409EFF")
-plt.ylabel("Quantité")
-plt.xlabel("Commercial")
-plt.title("Access+ vendus par commercial (unique clients)")
-plt.tight_layout()
-st.pyplot(plt.gcf())
-plt.clf()
+if not tab_acc.empty:
+    plt.figure(figsize=(10,4))
+    tab_acc["Nb ventes unique"].plot(kind="bar", color="#409EFF")
+    plt.ylabel("Quantité")
+    plt.xlabel("Commercial")
+    plt.title("Access+ vendus par commercial (unique clients)")
+    plt.tight_layout()
+    st.pyplot(plt.gcf())
+    plt.clf()
+else:
+    st.info("Aucune vente Access+ à afficher.")
 
 # Section WATERSTATION
 st.header("💧 Analyse WATERSTATION")
-df_ws = df[df[codeprod_col].astype(str).str.lower().str.startswith("waterstation")]
+df_ws = df[df[codeprod_col].astype(str).str.lower().str.startswith("waterstation")].copy()
 df_ws["client_id"] = df_ws[nom_col].astype(str).str.strip().str.upper() + " " + df_ws[prenom_col].astype(str).str.strip().str.upper()
 df_ws = df_ws.drop_duplicates("client_id")
 
