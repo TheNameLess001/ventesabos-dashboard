@@ -101,6 +101,7 @@ else:
         <li>Tu peux toujours changer de page via le menu à gauche.</li>
     </ul>
     <p style="margin-top:18px;font-size:1.1em;"><b>Besoin d'aide ?</b> <a href='mailto:Manager.racine@fitnesspark.ma'>Manager.racine@fitnesspark.ma</a></p>
+    <p style="margin-top:18px;font-size:1.1em;"><b>Besoin d'aide ?</b> <a href='90_Contact.py'>FPK CASA 1</a></p>
     </div>
     """.format(st.session_state.get("user", "Utilisateur")), unsafe_allow_html=True)
 
@@ -109,7 +110,7 @@ else:
     <div style='text-align:center;margin-top:60px;'>
         <hr style='border:0.5px solid #eee'>
         <span style="color:#888;font-family:monospace;font-size:1em;">
-            <b>SBN PY</b> • BI Suite Fitness Park
+            <b>SBN PY</b> 
         </span>
     </div>
     """, unsafe_allow_html=True)
