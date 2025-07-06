@@ -204,17 +204,20 @@ with tabs[1]:
     idx = np.arange(len(clubs))
     a = [access_counts.get(club, 0) for club in clubs]
     w = [water_counts.get(club, 0) for club in clubs]
-    fig, ax = plt.subplots(figsize=(max(7,len(clubs)*0.6), 4))
-    ax.bar(idx - bar_width/2, a, bar_width, label="Access+", color="#5B7DFF")
-    ax.bar(idx + bar_width/2, w, bar_width, label="Waterstation", color="#60C878")
-    ax.set_xticks(idx)
-    ax.set_xticklabels(clubs, rotation=45, ha="right")
-    ax.set_ylabel("Clients uniques")
-    ax.set_title("Comparatif Access+ / Waterstation par club")
-    ax.legend()
-    plt.tight_layout()
-    st.pyplot(fig)
-    plt.clf()
+    if any(a) or any(w):
+        fig, ax = plt.subplots(figsize=(max(7,len(clubs)*0.6), 4))
+        ax.bar(idx - bar_width/2, a, bar_width, label="Access+", color="#5B7DFF")
+        ax.bar(idx + bar_width/2, w, bar_width, label="Waterstation", color="#60C878")
+        ax.set_xticks(idx)
+        ax.set_xticklabels(clubs, rotation=45, ha="right")
+        ax.set_ylabel("Clients uniques")
+        ax.set_title("Comparatif Access+ / Waterstation par club")
+        ax.legend()
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.clf()
+    else:
+        st.info("Aucun résultat pour Access+ ou Waterstation sur cette sélection.")
 
 # ==== Par Commercial ====
 with tabs[2]:
@@ -225,13 +228,16 @@ with tabs[2]:
     # Table globale clients uniques par commercial
     vad_com = commercial_df.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(vad_com.to_frame("Clients uniques"))
-    fig, ax = plt.subplots()
-    vad_com.plot(kind="bar", color="#FFD700", ax=ax)
-    plt.ylabel("Clients uniques")
-    plt.title("VAD - Clients uniques par commercial")
-    plt.tight_layout()
-    st.pyplot(fig)
-    plt.clf()
+    if not vad_com.empty:
+        fig, ax = plt.subplots()
+        vad_com.plot(kind="bar", color="#FFD700", ax=ax)
+        plt.ylabel("Clients uniques")
+        plt.title("VAD - Clients uniques par commercial")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.clf()
+    else:
+        st.info("Aucun résultat commercial sur cette sélection.")
 
     # === Détail Access+ / Waterstation par commercial ===
     st.markdown("### Détail Access+ et Waterstation par commercial")
@@ -250,23 +256,29 @@ with tabs[2]:
 
     # === BARPLOT ACCESS+ PAR COMMERCIAL ===
     st.markdown("### Barplot Access+ par commercial")
-    fig, ax = plt.subplots(figsize=(max(7,len(access_detail)*0.6), 4))
-    access_detail.plot(kind="bar", color="#FFD700", ax=ax)
-    ax.set_ylabel("Clients Access+ uniques")
-    ax.set_title("Access+ par commercial")
-    plt.tight_layout()
-    st.pyplot(fig)
-    plt.clf()
+    if not access_detail.empty:
+        fig, ax = plt.subplots(figsize=(max(7,len(access_detail)*0.6), 4))
+        access_detail.plot(kind="bar", color="#FFD700", ax=ax)
+        ax.set_ylabel("Clients Access+ uniques")
+        ax.set_title("Access+ par commercial")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.clf()
+    else:
+        st.info("Aucun commercial n'a vendu Access+ sur cette sélection.")
 
     # === BARPLOT WATERSTATION PAR COMMERCIAL ===
     st.markdown("### Barplot Waterstation par commercial")
-    fig, ax = plt.subplots(figsize=(max(7,len(water_detail)*0.6), 4))
-    water_detail.plot(kind="bar", color="#60C878", ax=ax)
-    ax.set_ylabel("Clients Waterstation uniques")
-    ax.set_title("Waterstation par commercial")
-    plt.tight_layout()
-    st.pyplot(fig)
-    plt.clf()
+    if not water_detail.empty:
+        fig, ax = plt.subplots(figsize=(max(7,len(water_detail)*0.6), 4))
+        water_detail.plot(kind="bar", color="#60C878", ax=ax)
+        ax.set_ylabel("Clients Waterstation uniques")
+        ax.set_title("Waterstation par commercial")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.clf()
+    else:
+        st.info("Aucun commercial n'a vendu Waterstation sur cette sélection.")
 
 # ==== Export ====
 with tabs[3]:
