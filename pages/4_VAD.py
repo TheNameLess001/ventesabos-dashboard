@@ -68,7 +68,6 @@ def auto_select(candidates, dfcols, contains_any=None):
     for c in candidates:
         if c in dfcols:
             return c
-    # sinon, essaie avec "contient"
     if contains_any:
         for c in dfcols:
             if any(word in c.lower() for word in contains_any):
@@ -112,7 +111,7 @@ with st.expander("🛠️ Vérifiez/sélectionnez les colonnes à utiliser", exp
 df = df[df[col_auteur].astype(str).str.lower() != "automatisme"]
 df = df[df[col_etat].astype(str).str.lower() != "annulé"]
 
-# Conversion robuste des montants
+# Conversion ultra-robuste des montants
 def clean_money(s):
     return (
         s.astype(str)
@@ -129,6 +128,9 @@ df[col_mtht] = pd.to_numeric(clean_money(df[col_mtht]), errors="coerce")
 df[col_mttc] = pd.to_numeric(clean_money(df[col_mttc]), errors="coerce")
 
 df = df[df[col_mtht].notnull() & df[col_mttc].notnull()]
+
+# **SUPPRESSION des lignes TTC <= 0**
+df = df[df[col_mttc] > 0]
 df = df[df[col_mtht] > 0]
 
 # Client unique par Nom+Prénom
@@ -189,20 +191,27 @@ with tabs[1]:
     st.markdown("### Access+ par club")
     acc_club = access_df.groupby(club_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(acc_club.to_frame("Clients Access+ uniques"))
-    fig, ax = plt.subplots()
-    acc_club.plot(kind="bar", color="#5B7DFF", ax=ax)
-    plt.ylabel("Clients Access+")
-    plt.title("Access+ (clients uniques) par club")
-    plt.tight_layout()
-    st.pyplot(fig)
-    plt.clf()
     st.markdown("### Waterstation par club")
     water_club = water_df.groupby(club_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(water_club.to_frame("Clients Waterstation uniques"))
-    fig, ax = plt.subplots()
-    water_club.plot(kind="bar", color="#60C878", ax=ax)
-    plt.ylabel("Clients Waterstation")
-    plt.title("Waterstation (clients uniques) par club")
+
+    # === BARPLOT COMPARATIF CLUB Access+ / Waterstation ===
+    st.markdown("### Comparatif Access+ / Waterstation par club")
+    access_counts = acc_club
+    water_counts = water_club
+    clubs = sorted(list(set(access_counts.index) | set(water_counts.index)))
+    bar_width = 0.35
+    idx = np.arange(len(clubs))
+    a = [access_counts.get(club, 0) for club in clubs]
+    w = [water_counts.get(club, 0) for club in clubs]
+    fig, ax = plt.subplots(figsize=(max(7,len(clubs)*0.6), 4))
+    ax.bar(idx - bar_width/2, a, bar_width, label="Access+", color="#5B7DFF")
+    ax.bar(idx + bar_width/2, w, bar_width, label="Waterstation", color="#60C878")
+    ax.set_xticks(idx)
+    ax.set_xticklabels(clubs, rotation=45, ha="right")
+    ax.set_ylabel("Clients uniques")
+    ax.set_title("Comparatif Access+ / Waterstation par club")
+    ax.legend()
     plt.tight_layout()
     st.pyplot(fig)
     plt.clf()
@@ -212,7 +221,7 @@ with tabs[2]:
     st.subheader("🧑‍💼 Analyse Commerciale VAD")
     auteurs_com = st.multiselect("Filtrer par Auteur (Commerciaux)", all_auteurs, default=all_auteurs, key="auteurs_com")
     commercial_df = df[df[col_auteur].isin(auteurs_com)]
-    
+
     # Table globale clients uniques par commercial
     vad_com = commercial_df.groupby(commercial_col)['Client_Unique'].nunique().sort_values(ascending=False)
     st.dataframe(vad_com.to_frame("Clients uniques"))
@@ -239,6 +248,26 @@ with tabs[2]:
     st.write("#### Waterstation par commercial")
     st.dataframe(water_detail.to_frame())
 
+    # === BARPLOT ACCESS+ PAR COMMERCIAL ===
+    st.markdown("### Barplot Access+ par commercial")
+    fig, ax = plt.subplots(figsize=(max(7,len(access_detail)*0.6), 4))
+    access_detail.plot(kind="bar", color="#FFD700", ax=ax)
+    ax.set_ylabel("Clients Access+ uniques")
+    ax.set_title("Access+ par commercial")
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.clf()
+
+    # === BARPLOT WATERSTATION PAR COMMERCIAL ===
+    st.markdown("### Barplot Waterstation par commercial")
+    fig, ax = plt.subplots(figsize=(max(7,len(water_detail)*0.6), 4))
+    water_detail.plot(kind="bar", color="#60C878", ax=ax)
+    ax.set_ylabel("Clients Waterstation uniques")
+    ax.set_title("Waterstation par commercial")
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.clf()
+
 # ==== Export ====
 with tabs[3]:
     st.subheader("⬇️ Exporter les analyses")
@@ -246,7 +275,9 @@ with tabs[3]:
         "VAD_Global": df,
         "Access+_par_club": acc_club.to_frame("Clients Access+ uniques"),
         "Waterstation_par_club": water_club.to_frame("Clients Waterstation uniques"),
-        "Par_Commercial": vad_com.to_frame("Clients uniques")
+        "Par_Commercial": vad_com.to_frame("Clients uniques"),
+        "Access+_par_commercial": access_detail.to_frame(),
+        "Waterstation_par_commercial": water_detail.to_frame()
     })
     st.download_button(
         label="📥 Télécharger toutes les données (Excel)",
