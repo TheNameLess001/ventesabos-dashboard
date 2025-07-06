@@ -79,9 +79,20 @@ with st.expander("🛠️ Sélectionner les colonnes à utiliser", expanded=True
 df = df[df[col_auteur].astype(str).str.lower() != "automatisme"]
 df = df[df[col_etat].astype(str).str.lower() != "annulé"]
 
-# 🚨 Conversion automatique des montants !
-df[col_mtht] = pd.to_numeric(df[col_mtht], errors="coerce")
-df[col_mttc] = pd.to_numeric(df[col_mttc], errors="coerce")
+# 🚨 Conversion ultra-robuste des montants
+def clean_money(s):
+    return (
+        s.astype(str)
+        .str.replace("\u202f", "", regex=True)    # Espace insécable
+        .str.replace(" ", "", regex=True)         # Espaces classiques
+        .str.replace(",", ".", regex=False)       # Virgules --> points
+        .str.replace("MAD", "", regex=False)
+        .str.replace("dh", "", regex=False)
+        .str.extract(r'([-+]?\d*\.?\d+)', expand=False)   # Garde chiffres/point/signes
+    )
+
+df[col_mtht] = pd.to_numeric(clean_money(df[col_mtht]), errors="coerce")
+df[col_mttc] = pd.to_numeric(clean_money(df[col_mttc]), errors="coerce")
 
 df = df[df[col_mtht] > 0]
 
