@@ -61,7 +61,7 @@ def show_login():
         if check_login(user, pwd):
             st.session_state["logged"] = True
             st.session_state["user"] = user
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Identifiants incorrects.")
 
@@ -124,7 +124,7 @@ else:
             st.session_state["logged"] = False
             st.session_state.pop("user", None)
             st.session_state["show_pwd_inline"] = False
-            st.experimental_rerun()
+            st.rerun()
     with nav_col3:
         st.markdown(
             "<a href='mailto:Manager.racine@fitnesspark.ma' style='text-decoration:none;font-weight:bold;color:#555;'>📧 Support technique</a>",
