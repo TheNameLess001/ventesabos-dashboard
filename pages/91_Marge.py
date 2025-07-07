@@ -1,21 +1,25 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import os
 
 st.title("🛍️ Marge Goodies & Boutique")
 
-st.markdown("**Importer la page 1 du TBO (quantités vendues)**")
-file_qte = st.file_uploader("Page 1 - Quantités", type=["csv", "xlsx"], key="qte")
-st.markdown("**Importer la page 6 du TBO (CA)**")
-file_ca = st.file_uploader("Page 6 - CA", type=["csv", "xlsx"], key="ca")
+# Charger automatiquement goodies.csv et boutique.csv du dossier principal
+try:
+    goodies = pd.read_csv("Goodies.csv")
+    boutique = pd.read_csv("Boutique.csv")
+except Exception as e:
+    st.error(f"Impossible de charger Goodies.csv ou Boutique.csv dans le dossier principal : {e}")
+    st.stop()
 
-st.markdown("**Importer le fichier Goodies.csv (prix achat)**")
-file_goodies = st.file_uploader("Goodies.csv", type=["csv", "xlsx"], key="goodies")
-st.markdown("**Importer le fichier Boutique.csv (prix achat)**")
-file_boutique = st.file_uploader("Boutique.csv", type=["csv", "xlsx"], key="boutique")
+st.success("Fichiers Goodies.csv et Boutique.csv bien trouvés dans le dossier principal.")
 
-if file_qte and file_ca and file_goodies and file_boutique:
-    # Chargement robuste
+# Import du TBO (avec page 1 et page 6 dans le même fichier)
+st.markdown("**Importer le fichier TBO (contenant quantités ET CA)**")
+file_tbo = st.file_uploader("Fichier TBO", type=["csv", "xlsx"], key="tbo")
+
+if file_tbo:
+    # Chargement robuste du TBO
     def read_any(file):
         for enc in ["utf-8", "cp1252", "latin-1"]:
             try:
@@ -29,30 +33,22 @@ if file_qte and file_ca and file_goodies and file_boutique:
         st.error("Impossible de lire le fichier.")
         return None
 
-    df_qte = read_any(file_qte)
-    df_ca = read_any(file_ca)
-    goodies = read_any(file_goodies)
-    boutique = read_any(file_boutique)
-
-    if any(d is None for d in [df_qte, df_ca, goodies, boutique]):
+    tbo = read_any(file_tbo)
+    if tbo is None:
         st.stop()
 
-    st.write("#### Colonnes page 1 (quantités) :", df_qte.columns)
-    st.write("#### Colonnes page 6 (CA) :", df_ca.columns)
-    st.write("#### Colonnes goodies :", goodies.columns)
-    st.write("#### Colonnes boutique :", boutique.columns)
+    st.write("#### Colonnes TBO :", tbo.columns)
+    # Sélection de colonnes
+    col_prod = st.selectbox("Colonne produit", tbo.columns)
+    col_qte = st.selectbox("Colonne quantité vendue", tbo.columns)
+    col_ca = st.selectbox("Colonne chiffre d'affaires", tbo.columns)
+    # Colonnes dans goodies et boutique
+    col_prod_goodies = goodies.columns[0]
+    col_prix_goodies = goodies.columns[1]
+    col_prod_boutique = boutique.columns[0]
+    col_prix_boutique = boutique.columns[1]
 
-    # Sélection des colonnes
-    col_prod_qte = st.selectbox("Colonne produit (Quantités)", df_qte.columns)
-    col_qte = st.selectbox("Colonne quantité", df_qte.columns)
-    col_prod_ca = st.selectbox("Colonne produit (CA)", df_ca.columns)
-    col_ca = st.selectbox("Colonne chiffre d'affaires", df_ca.columns)
-    col_prod_goodies = st.selectbox("Colonne produit (Goodies)", goodies.columns)
-    col_prix_goodies = st.selectbox("Colonne prix achat (Goodies)", goodies.columns)
-    col_prod_boutique = st.selectbox("Colonne produit (Boutique)", boutique.columns)
-    col_prix_boutique = st.selectbox("Colonne prix achat (Boutique)", boutique.columns)
-
-    # Agréger tous les produits
+    # Agréger tous les produits (goodies + boutique)
     prix_achat = pd.concat([
         goodies[[col_prod_goodies, col_prix_goodies]].rename(columns={col_prod_goodies: "Produit", col_prix_goodies: "PrixAchat"}),
         boutique[[col_prod_boutique, col_prix_boutique]].rename(columns={col_prod_boutique: "Produit", col_prix_boutique: "PrixAchat"})
@@ -60,17 +56,14 @@ if file_qte and file_ca and file_goodies and file_boutique:
     prix_achat["Produit"] = prix_achat["Produit"].astype(str).str.upper()
     prix_achat["PrixAchat"] = pd.to_numeric(prix_achat["PrixAchat"], errors="coerce")
 
-    # Fusion Quantité & CA
-    df_qte_ = df_qte[[col_prod_qte, col_qte]].copy().rename(columns={col_prod_qte: "Produit", col_qte: "Quantité"})
-    df_ca_ = df_ca[[col_prod_ca, col_ca]].copy().rename(columns={col_prod_ca: "Produit", col_ca: "CA"})
-    for df_ in [df_qte_, df_ca_]:
-        df_["Produit"] = df_["Produit"].astype(str).str.upper()
-    df_qte_["Quantité"] = pd.to_numeric(df_qte_["Quantité"], errors="coerce")
-    df_ca_["CA"] = pd.to_numeric(df_ca_["CA"], errors="coerce")
-    df_ventes = pd.merge(df_qte_, df_ca_, on="Produit", how="inner")
+    # Filtre uniquement sur produits présents dans goodies/boutique
+    tbo["Produit"] = tbo[col_prod].astype(str).str.upper()
+    tbo["Quantité"] = pd.to_numeric(tbo[col_qte], errors="coerce")
+    tbo["CA"] = pd.to_numeric(tbo[col_ca], errors="coerce")
 
-    # Merge avec prix d'achat
-    df_marge = pd.merge(df_ventes, prix_achat, on="Produit", how="left")
+    # Match uniquement les produits présents dans goodies/boutique
+    tbo_goodies_boutique = tbo[tbo["Produit"].isin(prix_achat["Produit"])].copy()
+    df_marge = pd.merge(tbo_goodies_boutique, prix_achat, on="Produit", how="left")
     df_marge = df_marge.dropna(subset=["Quantité", "CA", "PrixAchat"])
     df_marge = df_marge[df_marge["Quantité"] > 0]
 
@@ -99,4 +92,5 @@ if file_qte and file_ca and file_goodies and file_boutique:
         file_name="marge_goodies_boutique.xlsx"
     )
 else:
-    st.info("Merci d'importer les 4 fichiers demandés.")
+    st.info("Merci d'importer le fichier TBO (page 1 et 6 ensemble).")
+
