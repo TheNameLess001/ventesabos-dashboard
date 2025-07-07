@@ -1,73 +1,82 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import os
 
-st.title("🛍️ Marge Goodies & Boutique")
+st.title("🛍️ Marge Goodies & Boutique (analyse avancée)")
 
-# Charger automatiquement goodies.csv et boutique.csv du dossier principal
+# Charger goodies.csv et boutique.csv du dossier principal
 try:
     goodies = pd.read_csv("Goodies.csv")
     boutique = pd.read_csv("Boutique.csv")
 except Exception as e:
-    st.error(f"Impossible de charger Goodies.csv ou Boutique.csv dans le dossier principal : {e}")
+    st.error(f"Impossible de charger Goodies.csv ou Boutique.csv : {e}")
     st.stop()
 
 st.success("Fichiers Goodies.csv et Boutique.csv bien trouvés dans le dossier principal.")
 
-# Import du TBO (avec page 1 et page 6 dans le même fichier)
-st.markdown("**Importer le fichier TBO (contenant quantités ET CA)**")
-file_tbo = st.file_uploader("Fichier TBO", type=["csv", "xlsx"], key="tbo")
+st.markdown("**Importer la page 1 du TBO (quantités)**")
+file_tbo1 = st.file_uploader("Page 1 TBO", type=["csv", "xlsx"], key="tbo1")
+st.markdown("**Importer la page 6 du TBO (CA)**")
+file_tbo6 = st.file_uploader("Page 6 TBO", type=["csv", "xlsx"], key="tbo6")
 
-if file_tbo:
-    # Chargement robuste du TBO
-    def read_any(file):
-        for enc in ["utf-8", "cp1252", "latin-1"]:
-            try:
-                file.seek(0)
-                if file.name.endswith(".csv"):
-                    return pd.read_csv(file, encoding=enc, sep=None, engine="python")
-                else:
-                    return pd.read_excel(file)
-            except Exception:
-                continue
-        st.error("Impossible de lire le fichier.")
-        return None
+def read_any(file, header=None):
+    for enc in ["utf-8", "cp1252", "latin-1"]:
+        try:
+            file.seek(0)
+            if file.name.endswith(".csv"):
+                return pd.read_csv(file, encoding=enc, header=header)
+            else:
+                return pd.read_excel(file, header=header)
+        except Exception:
+            continue
+    st.error("Impossible de lire le fichier.")
+    return None
 
-    tbo = read_any(file_tbo)
-    if tbo is None:
+if file_tbo1 and file_tbo6:
+    # Lecture brute des deux fichiers (on lit TOUT pour pouvoir naviguer dans les lignes)
+    tbo1_full = read_any(file_tbo1, header=None)
+    tbo6_full = read_any(file_tbo6, header=None)
+    if tbo1_full is None or tbo6_full is None:
         st.stop()
 
-    st.write("#### Colonnes TBO :", tbo.columns)
-    # Sélection de colonnes
-    col_prod = st.selectbox("Colonne produit", tbo.columns)
-    col_qte = st.selectbox("Colonne quantité vendue", tbo.columns)
-    col_ca = st.selectbox("Colonne chiffre d'affaires", tbo.columns)
-    # Colonnes dans goodies et boutique
-    col_prod_goodies = goodies.columns[0]
-    col_prix_goodies = goodies.columns[1]
-    col_prod_boutique = boutique.columns[0]
-    col_prix_boutique = boutique.columns[1]
+    st.write("Page 1 (quantité) :")
+    st.dataframe(tbo1_full.head(8))
+    st.write("Page 6 (CA) :")
+    st.dataframe(tbo6_full.head(8))
 
-    # Agréger tous les produits (goodies + boutique)
-    prix_achat = pd.concat([
-        goodies[[col_prod_goodies, col_prix_goodies]].rename(columns={col_prod_goodies: "Produit", col_prix_goodies: "PrixAchat"}),
-        boutique[[col_prod_boutique, col_prix_boutique]].rename(columns={col_prod_boutique: "Produit", col_prix_boutique: "PrixAchat"})
-    ], ignore_index=True)
-    prix_achat["Produit"] = prix_achat["Produit"].astype(str).str.upper()
+    # Lecture des produits (ligne 4), quantités (ligne 6), CA (ligne 5)
+    produits = tbo1_full.iloc[3].values
+    quantites = tbo1_full.iloc[5].values
+    ca = tbo6_full.iloc[4].values
+
+    # Construction DataFrame ventes
+    df = pd.DataFrame({
+        "Produit": produits,
+        "Quantité": quantites,
+        "CA": ca
+    })
+    df = df.dropna()
+    # Nettoyage
+    df["Produit"] = df["Produit"].astype(str).str.upper().str.strip()
+    df["Quantité"] = pd.to_numeric(df["Quantité"], errors="coerce")
+    df["CA"] = pd.to_numeric(df["CA"], errors="coerce")
+    df = df[df["Quantité"] > 0]
+    df = df[df["CA"] > 0]
+
+    # Concat base prix d'achat
+    goodies.columns = ["Produit", "PrixAchat"]
+    boutique.columns = ["Produit", "PrixAchat"]
+    prix_achat = pd.concat([goodies, boutique], ignore_index=True)
+    prix_achat["Produit"] = prix_achat["Produit"].astype(str).str.upper().str.strip()
     prix_achat["PrixAchat"] = pd.to_numeric(prix_achat["PrixAchat"], errors="coerce")
 
-    # Filtre uniquement sur produits présents dans goodies/boutique
-    tbo["Produit"] = tbo[col_prod].astype(str).str.upper()
-    tbo["Quantité"] = pd.to_numeric(tbo[col_qte], errors="coerce")
-    tbo["CA"] = pd.to_numeric(tbo[col_ca], errors="coerce")
-
-    # Match uniquement les produits présents dans goodies/boutique
-    tbo_goodies_boutique = tbo[tbo["Produit"].isin(prix_achat["Produit"])].copy()
-    df_marge = pd.merge(tbo_goodies_boutique, prix_achat, on="Produit", how="left")
+    # Merge
+    df_marge = pd.merge(df, prix_achat, on="Produit", how="inner")
     df_marge = df_marge.dropna(subset=["Quantité", "CA", "PrixAchat"])
     df_marge = df_marge[df_marge["Quantité"] > 0]
 
-    # Calcul prix vente moyen, marge unitaire, marge totale
+    # Calculs marge
     df_marge["PrixVenteMoyen"] = df_marge["CA"] / df_marge["Quantité"]
     df_marge["MargeUnitaire"] = df_marge["PrixVenteMoyen"] - df_marge["PrixAchat"]
     df_marge["MargeTotale"] = df_marge["MargeUnitaire"] * df_marge["Quantité"]
@@ -92,5 +101,5 @@ if file_tbo:
         file_name="marge_goodies_boutique.xlsx"
     )
 else:
-    st.info("Merci d'importer le fichier TBO (page 1 et 6 ensemble).")
+    st.info("Merci d'importer la page 1 ET la page 6 du TBO.")
 
