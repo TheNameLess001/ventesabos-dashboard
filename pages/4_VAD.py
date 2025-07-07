@@ -147,6 +147,9 @@ df = df[df[col_auteur].isin(selected_auteurs)]
 filtre_650 = st.sidebar.checkbox("❌ Supprimer les lignes à 650 MAD (TTC)", value=False)
 if filtre_650:
     df = df[df[col_mttc] != 650]
+filtre_700 = st.sidebar.checkbox("❌ Supprimer les lignes à 700 MAD (TTC)", value=False)
+if filtre_700:
+    df = df[df[col_mttc] != 700]
 
 # Onglets BI
 tabs = st.tabs([
