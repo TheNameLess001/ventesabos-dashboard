@@ -99,27 +99,44 @@ tabs = st.tabs(["📊 Dashboard Club Recouvrement", "🧑‍💼 Dashboard Comme
 with tabs[0]:
     st.subheader("🔵 Tableau Club (quantités)")
     table_club = df.groupby(offres_col).size().to_frame("Quantité").sort_values("Quantité", ascending=False)
+    # Ligne Total en bas
+    table_club.loc['Total'] = table_club['Quantité'].sum()
     st.dataframe(table_club)
 
     st.subheader("📅 Ventes par semaine (Club)")
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
     table_week = df.groupby(df[date_col].dt.to_period('W'))[offres_col].value_counts().unstack().fillna(0)
+    # Colonne Total à gauche + ligne Total en bas
+    table_week['Total'] = table_week.sum(axis=1)
+    table_week = table_week[['Total'] + [col for col in table_week.columns if col != 'Total']]
+    table_week.loc['Total'] = table_week.sum()
     st.dataframe(table_week)
 
 # ===== VUE COMMERCIALE =====
 with tabs[1]:
     st.subheader("🟢 Tableau Commercial (quantités)")
     table_com = df.groupby([comm_col, offres_col]).size().unstack(fill_value=0)
+    # Colonne Total à gauche + ligne Total en bas
+    table_com['Total'] = table_com.sum(axis=1)
+    table_com = table_com[['Total'] + [col for col in table_com.columns if col != 'Total']]
+    table_com.loc['Total'] = table_com.sum()
     st.dataframe(table_com)
 
     st.subheader("📅 Ventes par semaine (par Commercial)")
     week_com = df.groupby([df[date_col].dt.to_period('W'), comm_col]).size().unstack(fill_value=0)
+    # Colonne Total à gauche + ligne Total en bas
+    week_com['Total'] = week_com.sum(axis=1)
+    week_com = week_com[['Total'] + [col for col in week_com.columns if col != 'Total']]
+    week_com.loc['Total'] = week_com.sum()
     st.dataframe(week_com)
 
     st.subheader("🗂️ Détail des ventes (Commercial x Offre)")
     table_com_offre = df.pivot_table(index=comm_col, columns=offres_col, values=date_col, aggfunc="count", fill_value=0)
+    # Colonne Total à gauche + ligne Total en bas
+    table_com_offre['Total'] = table_com_offre.sum(axis=1)
+    table_com_offre = table_com_offre[['Total'] + [col for col in table_com_offre.columns if col != 'Total']]
+    table_com_offre.loc['Total'] = table_com_offre.sum()
     st.dataframe(table_com_offre)
-
 # ===== GRAPHIQUES =====
 with tabs[2]:
     st.subheader("📊 Graphique : Ventes Club par Offre")
