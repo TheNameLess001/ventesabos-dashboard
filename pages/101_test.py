@@ -7,7 +7,7 @@ PG_USER = 'postgres'
 PG_PASS = 'Samoju123@'
 PG_HOST = '127.0.0.1'
 PG_DB   = 'FPK_DASH'
-PG_URL = f"postgresql+psycopg2://{PG_USER}:{PG_PASS}@{PG_HOST}:5432/{PG_DB}"
+PG_URL = "postgresql+psycopg2://postgres:Samoju123%40@127.0.0.1:5432/FPK_DASH"
 
 try:
     engine = create_engine(PG_URL)
