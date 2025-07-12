@@ -5,3 +5,4 @@ openpyxl
 xlsxwriter
 streamlit
 streamlit-lottie
+psycopg2-binary sqlalchemy
