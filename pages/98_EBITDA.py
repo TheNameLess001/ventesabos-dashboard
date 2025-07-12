@@ -6,26 +6,70 @@ import re
 import calendar
 from collections import Counter
 import numpy as np
+import base64
 
 # --- Mapping segments/charges ---
 mapping = {
-    # ... (le même mapping que précédemment, inchangé)
-    "Nettoyage": [...],
-    "Des employés": [...],
-    "Leasing": [...],
-    "Réparations et entretien": [...],
-    "Publicité et relations publiques": [...],
-    "Services professionnels": [...],
-    "Achats et fournitures": [...],
-    "Fournitures": [...],
-    "Téléphones/ Communication": [...],
-    "Entraînement": [...],
-    "Autres": [...]
+    "Nettoyage": [
+        "GARDIENNAGE ET MENAGE", "NETTOYAGE FIN DE CHANTIER", "DERATISATIONS / DESINSECTISATION",
+        "ACHAT HYGYENE SDHE", "SERVICES DE NETTOYAGE", "BLANCHISSERIE"
+    ],
+    "Des employés": [
+        "APPOINTEMENTS ET SALAIRES", "INDEMNITES ET AVANTAGES DIVERS", "COTISATIONS DE SECURITE SOCIALE",
+        "COTISATIONS PREVOYANCE + SANTE", "PROVISION DES CP+CHARGES INITIAL", "PROVISION DES CP+CHARGES FINAL",
+        "GRATIFICATIONS DE STAGE", "REMPLACEMENTS", "INCITATIONS", "ASSURANCES ACCIDENTS DU TRAVAIL"
+    ],
+    "Leasing": [
+        "LOYER URBAN DEVELOPPEURS V", "LOYER URBAN DEVELOPPEURS - CHARGES LOCATIVES",
+        "REDEVANCES DE CREDIT BAIL MATERIEL PS FITNESS", "LOYER MATERIEL VIA FPK MAROC",
+        "LOCATION DISTRIBUTEUR KIT STORE", "LOCATION ESPACE PUBLICITAIRES"
+    ],
+    "Réparations et entretien": [
+        "ENTRET ET REPAR DES BIENS IMMOBILIERS", "MAINTENANCE IMAFLUIDE", "MAINTENANCE INCENDIE (par semestre)",
+        "MAINTENANCE TECHNOGYM", "MAINTENANCE HYDROMASSAGE"
+    ],
+    "Publicité et relations publiques": [
+        "DESIGN ET CREATIVITE", "AFFICHES pub", "FRAIS INAUGURATION / ANNIVERSAIRE",
+        "RECEPTIONS", "DISTRIBUTION SUPPORTS PUBLICITAIRES", "EVENEMENTS", "CLIENT MYSTERE",
+        "VOYAGES ET DEPLACEMENTS", "FRAIS POSTAUX dhl", "TAXES ECRAN DEVANTURE (1an)"
+    ],
+    "Services professionnels": [
+        "HONORAIRES COMPTA (moore)", "HONORAIRES SOCIAL (moore)", "HONORAIRES DIVERS",
+        "HONO PRESTATION FPK MAROC", "CONSEILS", "CONVENTION MEDECIN (1an)",
+        "SOUS TRAITANCE CENTRE D APPEL", "ACHATS PRESTATION admin / RH"
+    ],
+    "Achats et fournitures": [
+        "ACHATS DE MARCHANDISES revente", "ACHAT ALIZEE", "ACHAT BOGOODS", "ACHAT GRAPOS",
+        "ACHATS DE FOURNITURES DE BUREAU", "ACHAT TENUES",
+        "ACHATS DE PETITS EQUIPEMENTS FOURNITURES", "PRODUITS DE NETTOYAGE",
+        "PRODUITS DE TRAITEMENT DES PISCINES", "EQUIPEMENTS D'ENTRAINEMENT EN PETITS GROUPES",
+        "PAPETERIE", "PRESSE", "MATERIEL D'HABILLEMENT"
+    ],
+    "Fournitures": [
+        "ACHATS LYDEC (EAU+ELECTRICITE)", "ELECTRICITE", "GAZ", "WATER", "DIVERS FOURNITURES"
+    ],
+    "Téléphones/ Communication": [
+        "FRAIS DE TELECOMMUNICATION (orange)", "FRAIS DE TELECOMMUNICATION (Maroc Télécom)", "Téléphone", "Net / wifi"
+    ],
+    "Entraînement": [
+        "COURS COLLECTIFS", "COÛTS DES COURS/PROGRAMMES", "RÉGIMES ALIMENTAIRES ET HÉBERGEMENT", "DIVERS ENTRAÎNEMENT",
+        "ABONT FP CLOUD FITNESS PARK France", "ABONT QR CODE FITNESS PARK France",
+        "ABONT MG INSTORE MEDIA (1an)", "ABONT TSHOKO (1an)", "ABONT COMBO (1an)",
+        "ABONT CENAREO (1an)", "RESAMANIA HEBERGEMENT SERVEUR", "RESAMANIA SMS", "ABONT HYROX 365",
+        "ABONT LICENCE PLANET FITNESS"
+    ],
+    "Autres": [
+        "SERVICES BANCAIRES", "FRAIS ET COMMISSIONS SUR SERVICES BANCAI", "FRAIS COMMISSION NAPS",
+        "FRAIS COMMISSIONS CMI", "INSURANCE PREMIUMS", "TRANSPORT ET COURRIER", "SÉCURITÉ",
+        "DROITS MUSICAUX", "TAXES ET REDEVANCES", "SANCTIONS ADMINISTRATIVES", "DÉSÉQUILIBRES",
+        "INTERETS DES EMPRUNTS ET DETTES", "REDEVANCES FITNESS PARK France 3%", "DROITS D'ENREGISTREMENT ET DE TIMBRE",
+        "ASSURANCE RC CLUB SPORTIF (500 adhérents)", "ASSURANCE RC CLUB SPORTIF provision actif réel",
+        "ASSURANCE MULTIRISQUE", "CADEAUX SALARIE ET CLIENT", "CHEQUES CADEAUX POUR CHALLENGES"
+    ]
 }
 SEGMENTS_ORDER = list(mapping.keys())
 mapping = {str(k).strip(): [str(x).strip() for x in v] for k, v in mapping.items()}
 
-# --- Fonctions utilitaires ---
 def make_unique(seq):
     counter = Counter()
     res = []
@@ -98,18 +142,8 @@ def highlight_monthly(val, prev):
     except:
         return ''
 
-def heatmap_style(val, vmin, vmax):
-    # Color scale from green (low) to red (high)
-    if pd.isna(val):
-        return ''
-    norm = (val - vmin) / (vmax - vmin) if vmax != vmin else 0
-    r = int(255 * norm)
-    g = int(255 * (1-norm))
-    b = 200
-    return f'background-color: rgb({r},{g},{b}, 0.5)'
-
 st.set_page_config(layout="wide")
-st.title("💼 Analyse Visuelle et Interactive des Charges & Segments")
+st.title("💼 Analyse Visuelle & Interactive des Charges & Segments")
 
 st.info(
     "🔴 **Rouge** : hausse >10% | 🟢 **Vert** : baisse >10% (mois précédent).<br>"
@@ -121,7 +155,6 @@ uploaded_file = st.file_uploader("🗂️ Importer le fichier Balance", type=["c
 
 if uploaded_file is not None:
     try:
-        # --- Import CSV/XLSX (inchangé) ---
         if uploaded_file.name.endswith('.csv'):
             content = uploaded_file.read()
             encodings = ['utf-8', 'ISO-8859-1', 'latin1']
@@ -152,21 +185,15 @@ if uploaded_file is not None:
             df = pd.read_excel(xls, header=None, skiprows=5)
             df.columns = header4
 
-        # --- Segment Detection ---
-        mapping_vals = set()
-        for lignes in mapping.values():
-            mapping_vals.update([x.strip().upper() for x in lignes])
-        detected_intitule_col = None
-        for col in df.columns:
-            sample = df[col].astype(str).str.strip().str.upper()
-            if sample.isin(mapping_vals).any():
-                detected_intitule_col = col
-                break
-        if detected_intitule_col is None:
-            st.error("Colonne des intitulés non détectée. Vérifie la structure du fichier !")
-            st.stop()
+        # -------- NOUVEAU : Sélection manuelle de la colonne "intitulé" ----------
+        st.write("Aperçu des colonnes :", df.columns.tolist())
+        detected_intitule_col = st.selectbox(
+            "Sélectionne la colonne des intitulés de charges :",
+            options=df.columns.tolist()
+        )
+        st.write("Aperçu des intitulés :", df[detected_intitule_col].dropna().unique()[:15])
 
-        # --- Mois Columns ---
+        # -- MOIS COLUMNS DETECTION --
         mois_cols = []
         mois_headers = []
         for idx, (h4, h5) in enumerate(zip(header4, header5)):
@@ -177,7 +204,7 @@ if uploaded_file is not None:
         mois_names = [str(m).strip().replace('\n','').replace('\r','') for m in mois_names]
         mois_cols = [str(m).strip().replace('\n','').replace('\r','') for m in mois_cols]
 
-        # --- Clean montants ---
+        # -- FORMAT MONTANTS ULTIME --
         for col in mois_cols:
             df[col] = (
                 df[col]
@@ -188,31 +215,24 @@ if uploaded_file is not None:
             )
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        # --- Affectation des segments ---
+        # -- AFFECTATION DES SEGMENTS --
         df["SEGMENT"] = df[detected_intitule_col].apply(get_segment)
         df["SEGMENT"] = pd.Categorical(df["SEGMENT"], categories=SEGMENTS_ORDER, ordered=True)
         df = df[df["SEGMENT"].notnull()]
 
-        # --- TABLEAU GLOBAL ANNUEL AVEC HIGHLIGHT + HEATMAP ---
-        st.markdown("### 📊 Tableau annuel : toutes les évolutions en un coup d'œil")
+        # -- TABLEAU GLOBAL ANNUEL AVEC HIGHLIGHT --
+        st.markdown("### 📊 Tableau annuel (surlignage automatique des hausses/baisse par mois)")
         agg_annee = df.groupby("SEGMENT", observed=False)[mois_cols].sum(numeric_only=True)
         agg_annee = agg_annee.reindex(SEGMENTS_ORDER).fillna(0)
         agg_annee.columns = [str(c).strip().replace('\n','').replace('\r','') for c in agg_annee.columns]
         agg_annee["Total Année"] = agg_annee[mois_cols].sum(axis=1)
         display_agg_annee = agg_annee.copy()
         display_agg_annee.columns = [*mois_names, "Total Année"]
-        # --- Highlight alertes ---
         styled_annual = display_agg_annee.style.apply(highlight_annual, axis=1).format(mad_format)
-        # --- Heatmap continue (optionnel, décommenter pour tester) ---
-        heatmap_df = agg_annee[mois_cols]
-        vmin, vmax = np.nanmin(heatmap_df.values), np.nanmax(heatmap_df.values)
-        styled_annual = styled_annual.background_gradient(
-            cmap='YlOrRd', axis=None, subset=mois_names
-        )
         st.dataframe(styled_annual, use_container_width=True)
-        st.caption("⬆️ Rouge : hausse >10% | ⬇️ Vert : baisse >10% vs mois précédent. Fond jaune/rouge = heatmap progression.")
+        st.caption("⬆️ Rouge : hausse >10% | ⬇️ Vert : baisse >10% par rapport au mois précédent (ligne par ligne).")
 
-        # --- Export Excel avec couleurs ---
+        # -- EXPORT EXCEL AVEC COULEURS --
         import xlsxwriter
         from io import BytesIO
         if st.button("⬇️ Exporter ce tableau (annuel) en Excel stylé"):
@@ -223,7 +243,6 @@ if uploaded_file is not None:
                 export_df.to_excel(writer, sheet_name='Charges', index=True)
                 workbook  = writer.book
                 worksheet = writer.sheets['Charges']
-                # Format de base
                 fmt_mad = workbook.add_format({'num_format': '#,##0" MAD"', "align": "right"})
                 for col_num in range(1, 1+len(mois_names)):
                     worksheet.set_column(col_num, col_num, 18, fmt_mad)
@@ -243,7 +262,7 @@ if uploaded_file is not None:
                 href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="charges_annee.xlsx">Télécharger le tableau Excel avec couleurs</a>'
                 st.markdown(href, unsafe_allow_html=True)
 
-        # --- Détail segment interactif ---
+        # -- Détail segment interactif --
         st.markdown("### 🔍 Détail interactif par segment")
         segment_selected = st.selectbox(
             "Clique sur un segment pour voir le détail des lignes sources :",
@@ -258,15 +277,14 @@ if uploaded_file is not None:
                     display_lignes[col] = display_lignes[col].apply(mad_format)
                 st.dataframe(display_lignes, use_container_width=True)
 
-        # --- TABLEAU PAR MOIS (AVEC HIGHLIGHT COLONNE EN COURS VS PRECEDENTE) ---
-        st.markdown("### 📅 Tableaux par mois (scroll & alertes évolutions)")
+        # -- TABLEAU PAR MOIS (AVEC HIGHLIGHT COLONNE EN COURS VS PRECEDENTE) --
+        st.markdown("### 📅 Tableaux par mois (scroll horizontal & alertes évolutions)")
         tabs = st.tabs(mois_names)
         for i, col in enumerate(mois_cols):
             with tabs[i]:
                 agg_mois = df.groupby("SEGMENT", observed=False)[[col]].sum(numeric_only=True)
                 agg_mois = agg_mois.reindex(SEGMENTS_ORDER).fillna(0)
                 agg_mois.columns = [mois_names[i]]
-                # Highlight par rapport au mois précédent
                 if i > 0:
                     prev_col = mois_cols[i-1]
                     prev_data = df.groupby("SEGMENT", observed=False)[[prev_col]].sum(numeric_only=True).reindex(SEGMENTS_ORDER).fillna(0)
@@ -332,7 +350,7 @@ if uploaded_file is not None:
         else:
             st.info("Sélectionne au moins un segment ET une période pour voir les graphiques !")
 
-        # --- TABLEAU CUMUL PÉRIODE SÉLECTIONNÉE (SLIDER) ---
+        # -- TABLEAU CUMUL PÉRIODE SÉLECTIONNÉE (SLIDER) --
         st.markdown("### 🧮 Cumul des segments sur la période sélectionnée")
         if len(cols_mois_vraies) > 1:
             from_month, to_month = st.select_slider(
