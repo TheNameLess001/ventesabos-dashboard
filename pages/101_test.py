@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 
 st.title("TEST CONNEXION À FPK_DASH (admin123)")
 
-PG_USER = 'admin123'
+PG_USER = 'Admin123'
 PG_PASS = 'admin123'
 PG_HOST = '127.0.0.1'
 PG_DB   = 'FPK_DASH'
