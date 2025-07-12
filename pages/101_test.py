@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 
 st.title("TEST CONNEXION POSTGRESQL")
 
-PG_URL = "postgresql+psycopg2://postgres:Samoju123@@127.0.0.1:5432/postgres"
+PG_URL = "postgresql+psycopg2://postgres:Samoju123@@127.0.0.1:5432/FPK_DASH"
 
 try:
     engine = create_engine(PG_URL)
