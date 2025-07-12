@@ -106,8 +106,28 @@ def extract_month_name(header):
         return f"{calendar.month_name[month]} {year}"
     return header
 
+def highlight_delta(val, prev):
+    # Colore si > +10% (rouge) ou < -10% (vert)
+    try:
+        if pd.isna(prev) or prev == 0 or pd.isna(val):
+            return ''
+        delta = (val - prev) / abs(prev)
+        if delta > 0.10:
+            return 'background-color: #FFB3B3'  # Rouge clair
+        elif delta < -0.10:
+            return 'background-color: #B3FFB3'  # Vert clair
+        else:
+            return ''
+    except:
+        return ''
+
 st.set_page_config(layout="wide")
 st.title("💼 Analyse des Charges & Segments")
+
+st.info(
+    "Dans chaque tableau mensuel, les charges qui ont **augmenté de plus de 10%** sont surlignées en **rouge**, "
+    "celles qui ont **diminué de plus de 10%** en **vert** (comparé au mois précédent)."
+)
 
 uploaded_file = st.file_uploader("🗂️ Importer le fichier Balance", type=["csv", "xlsx"])
 
@@ -210,16 +230,26 @@ if uploaded_file is not None:
                     display_lignes[col] = display_lignes[col].apply(mad_format)
                 st.dataframe(display_lignes, use_container_width=True)
 
-        # -- TABLEAU PAR MOIS --
-        st.markdown("### 📅 Tableaux par mois (scroll horizontal)")
+        # -- TABLEAU PAR MOIS (AVEC ALERTES) --
+        st.markdown("### 📅 Tableaux par mois (scroll horizontal & alertes évolutions)")
         tabs = st.tabs(mois_names)
         for i, col in enumerate(mois_cols):
             with tabs[i]:
                 agg_mois = df.groupby("SEGMENT", observed=False)[[col]].sum(numeric_only=True)
                 agg_mois = agg_mois.reindex(SEGMENTS_ORDER).fillna(0)
                 agg_mois.columns = [mois_names[i]]
-                agg_mois[mois_names[i]] = agg_mois[mois_names[i]].apply(mad_format)
-                st.dataframe(agg_mois, use_container_width=True)
+                if i > 0:
+                    prev_col = mois_cols[i-1]
+                    prev_data = df.groupby("SEGMENT", observed=False)[[prev_col]].sum(numeric_only=True).reindex(SEGMENTS_ORDER).fillna(0)
+                    styled = agg_mois.style.apply(
+                        lambda s: [highlight_delta(val, prev) for val, prev in zip(s, prev_data[prev_col].values)],
+                        axis=0
+                    ).format(mad_format)
+                    st.dataframe(styled, use_container_width=True)
+                else:
+                    st.dataframe(agg_mois.applymap(mad_format), use_container_width=True)
+
+        st.caption("⬆️ Rouge : +10% ou plus | ⬇️ Vert : -10% ou plus (vs mois précédent)")
 
         # --- NOUVEAU BLOC : Multi-graph segments avec filtre date global ---
         st.markdown("### 🎛️ Compare plusieurs segments (période commune)")
