@@ -24,7 +24,6 @@ if file:
         file.seek(0)
         df = pd.read_csv(file, encoding="latin-1")
     df.columns = df.columns.str.strip()
-    # ... la suite
     df.columns = df.columns.str.strip()
     # Save data to SQLite, replace table if exists
     df.to_sql(TABLE_NAME, engine, if_exists="replace", index=False)
