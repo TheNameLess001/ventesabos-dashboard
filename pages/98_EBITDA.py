@@ -7,6 +7,18 @@ import calendar
 from collections import Counter
 import numpy as np
 
+def make_unique(seq):
+    counter = Counter()
+    res = []
+    for s in seq:
+        if s in counter:
+            counter[s] += 1
+            res.append(f"{s}_{counter[s]}")
+        else:
+            counter[s] = 0
+            res.append(s)
+    return res
+
 # ----- MAPPING -----
 # ... [Garde ici ton mapping et fonctions utilitaires comme avant] ...
 # (Je les laisse inchangées pour alléger ce message)
