@@ -7,3 +7,5 @@ streamlit
 streamlit-lottie
 sqlalchemy
 psycopg2-binary
+streamlit-authenticator
+requests-oauthlib
