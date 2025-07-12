@@ -185,7 +185,6 @@ if uploaded_file is not None:
             df = pd.read_excel(xls, header=None, skiprows=5)
             df.columns = header4
 
-        # -------- NOUVEAU : Sélection manuelle de la colonne "intitulé" ----------
         st.write("Aperçu des colonnes :", df.columns.tolist())
         detected_intitule_col = st.selectbox(
             "Sélectionne la colonne des intitulés de charges :",
@@ -204,7 +203,6 @@ if uploaded_file is not None:
         mois_names = [str(m).strip().replace('\n','').replace('\r','') for m in mois_names]
         mois_cols = [str(m).strip().replace('\n','').replace('\r','') for m in mois_cols]
 
-        # -- FORMAT MONTANTS ULTIME --
         for col in mois_cols:
             df[col] = (
                 df[col]
@@ -215,12 +213,11 @@ if uploaded_file is not None:
             )
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        # -- AFFECTATION DES SEGMENTS --
         df["SEGMENT"] = df[detected_intitule_col].apply(get_segment)
         df["SEGMENT"] = pd.Categorical(df["SEGMENT"], categories=SEGMENTS_ORDER, ordered=True)
         df = df[df["SEGMENT"].notnull()]
 
-        # -- TABLEAU GLOBAL ANNUEL AVEC HIGHLIGHT --
+        # --- TABLEAU ANNUEL ---
         st.markdown("### 📊 Tableau annuel (surlignage automatique des hausses/baisse par mois)")
         agg_annee = df.groupby("SEGMENT", observed=False)[mois_cols].sum(numeric_only=True)
         agg_annee = agg_annee.reindex(SEGMENTS_ORDER).fillna(0)
@@ -232,52 +229,7 @@ if uploaded_file is not None:
         st.dataframe(styled_annual, use_container_width=True)
         st.caption("⬆️ Rouge : hausse >10% | ⬇️ Vert : baisse >10% par rapport au mois précédent (ligne par ligne).")
 
-        # -- EXPORT EXCEL AVEC COULEURS --
-        import xlsxwriter
-        from io import BytesIO
-        if st.button("⬇️ Exporter ce tableau (annuel) en Excel stylé"):
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                export_df = agg_annee.copy()
-                export_df.columns = mois_names + ["Total Année"]
-                export_df.to_excel(writer, sheet_name='Charges', index=True)
-                workbook  = writer.book
-                worksheet = writer.sheets['Charges']
-                fmt_mad = workbook.add_format({'num_format': '#,##0" MAD"', "align": "right"})
-                for col_num in range(1, 1+len(mois_names)):
-                    worksheet.set_column(col_num, col_num, 18, fmt_mad)
-                # Highlight colors
-                for row_num in range(1, 1+len(export_df)):
-                    for col_num in range(1, 1+len(mois_names)):
-                        curr = export_df.iloc[row_num-1, col_num-1]
-                        prev = export_df.iloc[row_num-1, col_num-2] if col_num > 1 else None
-                        if col_num > 1 and pd.notna(prev) and prev != 0 and pd.notna(curr):
-                            delta = (curr - prev) / abs(prev)
-                            if delta > 0.10:
-                                worksheet.write(row_num, col_num, curr, workbook.add_format({'bg_color': '#FFB3B3', 'num_format': '#,##0" MAD"'}))
-                            elif delta < -0.10:
-                                worksheet.write(row_num, col_num, curr, workbook.add_format({'bg_color': '#B3FFB3', 'num_format': '#,##0" MAD"'}))
-                writer.save()
-                b64 = base64.b64encode(output.getvalue()).decode()
-                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="charges_annee.xlsx">Télécharger le tableau Excel avec couleurs</a>'
-                st.markdown(href, unsafe_allow_html=True)
-
-        # -- Détail segment interactif --
-        st.markdown("### 🔍 Détail interactif par segment")
-        segment_selected = st.selectbox(
-            "Clique sur un segment pour voir le détail des lignes sources :",
-            [s for s in SEGMENTS_ORDER if s in df['SEGMENT'].unique()]
-        )
-        if segment_selected:
-            with st.expander(f"Détails pour le segment : {segment_selected}", expanded=True):
-                lignes_segment = df[df['SEGMENT'] == segment_selected]
-                display_cols = [detected_intitule_col] + mois_cols
-                display_lignes = lignes_segment[display_cols].copy()
-                for col in mois_cols:
-                    display_lignes[col] = display_lignes[col].apply(mad_format)
-                st.dataframe(display_lignes, use_container_width=True)
-
-        # -- TABLEAU PAR MOIS (AVEC HIGHLIGHT COLONNE EN COURS VS PRECEDENTE) --
+        # --- TABS PAR MOIS ---
         st.markdown("### 📅 Tableaux par mois (scroll horizontal & alertes évolutions)")
         tabs = st.tabs(mois_names)
         for i, col in enumerate(mois_cols):
@@ -288,28 +240,21 @@ if uploaded_file is not None:
                 if i > 0:
                     prev_col = mois_cols[i-1]
                     prev_data = df.groupby("SEGMENT", observed=False)[[prev_col]].sum(numeric_only=True).reindex(SEGMENTS_ORDER).fillna(0)
-                    styled = agg_mois.copy()
                     def row_highlight(s):
-                        styles = []
-                        for val, prev in zip(s, prev_data[prev_col].values):
-                            styles.append(highlight_monthly(val, prev))
-                        return styles
+                        return [highlight_monthly(val, prev) for val, prev in zip(s, prev_data[prev_col].values)]
                     st.dataframe(
                         agg_mois.style.apply(row_highlight, axis=0).format(mad_format),
                         use_container_width=True
                     )
                 else:
                     st.dataframe(agg_mois.applymap(mad_format), use_container_width=True)
-
         st.caption("⬆️ Rouge : hausse >10% | ⬇️ Vert : baisse >10% par rapport au mois précédent.")
 
         # --- MULTIGRAPH INTERACTIF ---
         st.markdown("### 🎛️ Compare plusieurs segments (période commune)")
-
         segments_available = [str(seg).replace("’", "").replace("'", "").replace('"', "").strip() for seg in SEGMENTS_ORDER]
         cols_mois_vraies = [c for c in agg_annee.columns if c != "Total Année"]
 
-        # 1 seul slider période (commune à tous)
         if len(cols_mois_vraies) > 1:
             from_month, to_month = st.select_slider(
                 "Sélectionne la période à afficher pour TOUS les graphiques (de ... à ...)",
@@ -350,7 +295,7 @@ if uploaded_file is not None:
         else:
             st.info("Sélectionne au moins un segment ET une période pour voir les graphiques !")
 
-        # -- TABLEAU CUMUL PÉRIODE SÉLECTIONNÉE (SLIDER) --
+        # --- TABLEAU CUMUL PÉRIODE SÉLECTIONNÉE (SLIDER) ---
         st.markdown("### 🧮 Cumul des segments sur la période sélectionnée")
         if len(cols_mois_vraies) > 1:
             from_month, to_month = st.select_slider(
