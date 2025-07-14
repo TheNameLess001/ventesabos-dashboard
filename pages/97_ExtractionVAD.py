@@ -105,14 +105,23 @@ if uploaded_file is not None:
         st.header("🛑 Clients sans Access+ (uniques)")
         st.dataframe(vue1, use_container_width=True)
         st.info(f"Nombre de clients sans Access+ : **{len(vue1)}**")
+        vue_csv = vue1
+        csv_name = "clients_sans_access_plus.csv"
     elif vue_choisie == "🚱 Clients sans Access+ ni Waterstation":
         st.header("🚱 Clients sans Access+ ni Waterstation")
         st.dataframe(vue2, use_container_width=True)
         st.info(f"Nombre de clients sans Access+ ni Waterstation : **{len(vue2)}**")
+        vue_csv = vue2
+        csv_name = "clients_sans_access_plus_ni_waterstation.csv"
     elif vue_choisie == "🎯 Clients sans Waterstation et < 25 ans":
         st.header("🎯 Clients sans Waterstation et < 25 ans")
         st.dataframe(vue3, use_container_width=True)
         st.info(f"Nombre de clients sans Waterstation et < 25 ans : **{len(vue3)}**")
+        vue_csv = vue3
+        csv_name = "clients_sans_waterstation_moins25ans.csv"
+    else:
+        vue_csv = pd.DataFrame()
+        csv_name = "extraction_clients.csv"
 
     # Export Excel combiné (toujours disponible)
     output = io.BytesIO()
@@ -126,5 +135,17 @@ if uploaded_file is not None:
         data=output.getvalue(),
         file_name="clients_sans_options.xlsx"
     )
+
+    # Export CSV vue sélectionnée
+    st.markdown("---")
+    st.markdown("### Export CSV (séparé par `;`) de la vue affichée")
+    if not vue_csv.empty:
+        csv_data = vue_csv.to_csv(index=False, sep=";")
+        st.download_button(
+            "⬇️ Télécharger la vue en CSV (séparé par ;)",
+            data=csv_data.encode('utf-8'),
+            file_name=csv_name,
+            mime="text/csv"
+        )
 else:
     st.warning("Importe un fichier pour démarrer l'analyse.")
