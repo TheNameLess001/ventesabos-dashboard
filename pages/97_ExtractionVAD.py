@@ -7,15 +7,30 @@ import base64
 st.set_page_config(layout="wide")
 st.title("🔍 Extraction clients sans Access+ et/ou Waterstation")
 
-def read_csv_any_encoding(file):
+def read_csv_any_encoding_any_sep(file):
+    """Lit un CSV même si le séparateur ou l'encodage sont exotiques."""
     encodings = ["utf-8", "utf-16", "ISO-8859-1", "latin1"]
+    seps = [",", ";", "\t", "|"]
+    last_error = None
     for enc in encodings:
-        try:
-            file.seek(0)
-            return pd.read_csv(file, encoding=enc)
-        except Exception:
-            continue
-    raise ValueError("Impossible de lire le fichier CSV avec les encodages courants.")
+        for sep in seps:
+            try:
+                file.seek(0)
+                df = pd.read_csv(file, encoding=enc, sep=sep)
+                # Vérifie qu'il y a au moins 2 colonnes pour valider
+                if len(df.columns) > 1:
+                    return df
+            except Exception as e:
+                last_error = e
+                continue
+    # Si rien ne marche, on lit tout et on affiche les premières lignes brutes
+    file.seek(0)
+    preview = file.read(1024)
+    st.error("Impossible de lire le fichier CSV avec les encodages et séparateurs courants.")
+    st.write("Aperçu brut du fichier :", preview)
+    if last_error:
+        st.write(f"Dernière erreur rencontrée : {last_error}")
+    raise ValueError("Lecture du fichier impossible.")
 
 def calcul_age(date_naissance):
     try:
@@ -38,9 +53,9 @@ def calcul_age(date_naissance):
 uploaded_file = st.file_uploader("Importer la liste des clients", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
-    # Lecture du fichier, compatible tous encodages
+    # Lecture du fichier, compatible tous encodages ET tous séparateurs
     if uploaded_file.name.endswith(".csv"):
-        df = read_csv_any_encoding(uploaded_file)
+        df = read_csv_any_encoding_any_sep(uploaded_file)
     else:
         df = pd.read_excel(uploaded_file)
 
