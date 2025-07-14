@@ -4,7 +4,7 @@ import datetime
 import io
 
 st.set_page_config(layout="wide")
-st.title("🔍 Extraction clients : Access+, Waterstation, <25 ans")
+st.title("🔍 Extraction clients CDI : Access+, Waterstation, <25 ans")
 
 def read_csv_any_encoding_any_sep(file):
     """Lit un CSV même si le séparateur ou l'encodage sont exotiques."""
@@ -21,7 +21,6 @@ def read_csv_any_encoding_any_sep(file):
             except Exception as e:
                 last_error = e
                 continue
-    # Si rien ne marche, on lit tout et on affiche les premières lignes brutes
     file.seek(0)
     preview = file.read(1024)
     st.error("Impossible de lire le fichier CSV (testé tous les encodages et séparateurs).")
@@ -64,6 +63,7 @@ if uploaded_file is not None:
     colonnes = df.columns.tolist()
 
     # Sélection des colonnes utiles
+    col_type = st.selectbox("Colonne TYPE (ex: 'Type')", colonnes, index=0)
     col_nom = st.selectbox("Colonne NOM", colonnes, index=1)
     col_prenom = st.selectbox("Colonne PRENOM", colonnes, index=2)
     col_tel = st.selectbox("Colonne NUMÉRO DE TÉLÉPHONE", colonnes, index=3)
@@ -71,54 +71,57 @@ if uploaded_file is not None:
     col_naissance = st.selectbox("Colonne DATE DE NAISSANCE", colonnes, index=5 if len(colonnes)>5 else -1)
     colonnes_export = [col_nom, col_prenom, col_tel, col_abonnement]
 
-    # Masques pour options
-    mask_access = ~df[col_abonnement].astype(str).str.upper().str.contains("ACCESS\+", regex=True, na=False)
-    mask_water = ~df[col_abonnement].astype(str).str.upper().str.contains("WATERSTATION", regex=True, na=False)
+    # Filtre uniquement les CDI
+    df_cdi = df[df[col_type].astype(str).str.upper().str.strip() == "CDI"]
 
-    # Calcul de l'âge pour vue 3
+    # Masques pour options (sur df_cdi)
+    mask_access = ~df_cdi[col_abonnement].astype(str).str.upper().str.contains("ACCESS\+", regex=True, na=False)
+    mask_water = ~df_cdi[col_abonnement].astype(str).str.upper().str.contains("WATERSTATION", regex=True, na=False)
+
+    # Calcul de l'âge pour vue 3 (sur df_cdi)
     try:
-        df["AGE"] = df[col_naissance].apply(calcul_age)
+        df_cdi["AGE"] = df_cdi[col_naissance].apply(calcul_age)
     except Exception as e:
         st.warning(f"Erreur lors du calcul de l'âge : {e}")
-        df["AGE"] = None
+        df_cdi["AGE"] = None
 
-    # Génère les vues (toujours, mais affiche une seule à la fois)
-    vue1 = df[mask_access].drop_duplicates(subset=[col_nom])
+    # Génère les vues à partir de df_cdi
+    vue1 = df_cdi[mask_access].drop_duplicates(subset=[col_nom])
     vue1 = vue1[colonnes_export]
-    vue2 = df[mask_access & mask_water].drop_duplicates(subset=[col_nom])
+    vue2 = df_cdi[mask_access & mask_water].drop_duplicates(subset=[col_nom])
     vue2 = vue2[colonnes_export]
-    mask_age = df["AGE"].notnull() & (df["AGE"] < 25)
-    vue3 = df[mask_water & mask_age].drop_duplicates(subset=[col_nom])
+    mask_age = df_cdi["AGE"].notnull() & (df_cdi["AGE"] < 25)
+    vue3 = df_cdi[mask_water & mask_age].drop_duplicates(subset=[col_nom])
     vue3 = vue3[colonnes_export]
 
     # Sélection de la vue à afficher
     vue_choisie = st.radio(
         "Choisis la vue à afficher :",
         (
-            "🛑 Clients sans Access+ (uniques)",
-            "🚱 Clients sans Access+ ni Waterstation",
-            "🎯 Clients sans Waterstation et < 25 ans"
+            "🛑 Clients CDI sans Access+ (uniques)",
+            "🚱 Clients CDI sans Access+ ni Waterstation",
+            "🎯 Clients CDI sans Waterstation et < 25 ans"
         )
     )
 
-    if vue_choisie == "🛑 Clients sans Access+ (uniques)":
-        st.header("🛑 Clients sans Access+ (uniques)")
+    if vue_choisie == "🛑 Clients CDI sans Access+ (uniques)":
+        st.header("🛑 Clients CDI sans Access+ (uniques)")
         st.dataframe(vue1, use_container_width=True)
-        st.info(f"Nombre de clients sans Access+ : **{len(vue1)}**")
+        st.info(f"Nombre de clients CDI sans Access+ : **{len(vue1)}**")
         vue_csv = vue1
-        csv_name = "clients_sans_access_plus.csv"
-    elif vue_choisie == "🚱 Clients sans Access+ ni Waterstation":
-        st.header("🚱 Clients sans Access+ ni Waterstation")
+        csv_name = "clients_cdi_sans_access_plus.csv"
+    elif vue_choisie == "🚱 Clients CDI sans Access+ ni Waterstation":
+        st.header("🚱 Clients CDI sans Access+ ni Waterstation")
         st.dataframe(vue2, use_container_width=True)
-        st.info(f"Nombre de clients sans Access+ ni Waterstation : **{len(vue2)}**")
+        st.info(f"Nombre de clients CDI sans Access+ ni Waterstation : **{len(vue2)}**")
         vue_csv = vue2
-        csv_name = "clients_sans_access_plus_ni_waterstation.csv"
-    elif vue_choisie == "🎯 Clients sans Waterstation et < 25 ans":
-        st.header("🎯 Clients sans Waterstation et < 25 ans")
+        csv_name = "clients_cdi_sans_access_plus_ni_waterstation.csv"
+    elif vue_choisie == "🎯 Clients CDI sans Waterstation et < 25 ans":
+        st.header("🎯 Clients CDI sans Waterstation et < 25 ans")
         st.dataframe(vue3, use_container_width=True)
-        st.info(f"Nombre de clients sans Waterstation et < 25 ans : **{len(vue3)}**")
+        st.info(f"Nombre de clients CDI sans Waterstation et < 25 ans : **{len(vue3)}**")
         vue_csv = vue3
-        csv_name = "clients_sans_waterstation_moins25ans.csv"
+        csv_name = "clients_cdi_sans_waterstation_moins25ans.csv"
     else:
         vue_csv = pd.DataFrame()
         csv_name = "extraction_clients.csv"
@@ -126,14 +129,14 @@ if uploaded_file is not None:
     # Export Excel combiné (toujours disponible)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        vue1.to_excel(writer, sheet_name="Sans_Access+", index=False)
-        vue2.to_excel(writer, sheet_name="Sans_Access+_ni_Waterstation", index=False)
-        vue3.to_excel(writer, sheet_name="Sans_Waterstation_<25ans", index=False)
+        vue1.to_excel(writer, sheet_name="CDI_Sans_Access+", index=False)
+        vue2.to_excel(writer, sheet_name="CDI_Sans_Access+_ni_Waterstation", index=False)
+        vue3.to_excel(writer, sheet_name="CDI_Sans_Waterstation_<25ans", index=False)
 
     st.download_button(
         "⬇️ Télécharger l'export Excel combiné",
         data=output.getvalue(),
-        file_name="clients_sans_options.xlsx"
+        file_name="clients_CDI_sans_options.xlsx"
     )
 
     # Export CSV vue sélectionnée
