@@ -1,15 +1,24 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import io
+import base64
 
 st.set_page_config(layout="wide")
-st.title("🔍 Analyse des Clients sans Options")
+st.title("🔍 Extraction clients sans Access+ et/ou Waterstation")
 
-uploaded_file = st.file_uploader("Importer la liste des clients", type=["csv", "xlsx"])
+def read_csv_any_encoding(file):
+    encodings = ["utf-8", "utf-16", "ISO-8859-1", "latin1"]
+    for enc in encodings:
+        try:
+            file.seek(0)
+            return pd.read_csv(file, encoding=enc)
+        except Exception:
+            continue
+    raise ValueError("Impossible de lire le fichier CSV avec les encodages courants.")
 
 def calcul_age(date_naissance):
     try:
-        # Gère différentes écritures de date
         if pd.isnull(date_naissance): return None
         if isinstance(date_naissance, str):
             for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"):
@@ -26,26 +35,27 @@ def calcul_age(date_naissance):
         return age
     except: return None
 
+uploaded_file = st.file_uploader("Importer la liste des clients", type=["csv", "xlsx"])
+
 if uploaded_file is not None:
-    # Chargement fichier
+    # Lecture du fichier, compatible tous encodages
     if uploaded_file.name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
+        df = read_csv_any_encoding(uploaded_file)
     else:
         df = pd.read_excel(uploaded_file)
 
     st.write("Aperçu fichier :", df.head(10))
     colonnes = df.columns.tolist()
 
-    # Sélection manuelle si besoin (pour s'adapter à toute structure)
-    col_type = st.selectbox("Colonne TYPE", colonnes, index=0)
+    # Sélection manuelle si besoin
+    col_type = st.selectbox("Colonne TYPE (ex: 'Type')", colonnes, index=0)
     col_nom = st.selectbox("Colonne NOM DU CLIENT", colonnes, index=1)
-    col_abonnement = st.selectbox("Colonne ABONNEMENT (U)", colonnes, index=20 if len(colonnes)>20 else -1)
+    col_abonnement = st.selectbox("Colonne ABONNEMENT (Access+/Waterstation) (U)", colonnes, index=20 if len(colonnes)>20 else -1)
     col_naissance = st.selectbox("Colonne DATE DE NAISSANCE (F)", colonnes, index=5 if len(colonnes)>5 else -1)
 
-    # On retire les lignes où la colonne nom d'abonnement contient Access+
-    mask_access = ~df[col_abonnement].astype(str).str.upper().str.contains("ACCESS\+", regex=True)
-    # On retire les lignes où la colonne nom d'abonnement contient Waterstation
-    mask_water = ~df[col_abonnement].astype(str).str.upper().str.contains("WATERSTATION", regex=True)
+    # Masques pour options
+    mask_access = ~df[col_abonnement].astype(str).str.upper().str.contains("ACCESS\+", regex=True, na=False)
+    mask_water = ~df[col_abonnement].astype(str).str.upper().str.contains("WATERSTATION", regex=True, na=False)
 
     # Vue 1 : Sans Access+
     st.header("🛑 Clients sans Access+ (uniques)")
@@ -60,25 +70,24 @@ if uploaded_file is not None:
     st.info(f"Nombre de clients sans Access+ ni Waterstation : **{len(vue2)}**")
 
     # Vue 3 : Sans Waterstation et < 25 ans
+    st.header("🎯 Clients sans Waterstation et < 25 ans")
     df["AGE"] = df[col_naissance].apply(calcul_age)
     mask_age = df["AGE"].notnull() & (df["AGE"] < 25)
     vue3 = df[mask_water & mask_age].drop_duplicates(subset=[col_nom])
-    st.header("🎯 Clients sans Waterstation et < 25 ans")
     st.dataframe(vue3, use_container_width=True)
     st.info(f"Nombre de clients sans Waterstation et < 25 ans : **{len(vue3)}**")
 
     # Export Excel combiné
-    import io
-    with pd.ExcelWriter(io.BytesIO(), engine="xlsxwriter") as writer:
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         vue1.to_excel(writer, sheet_name="Sans_Access+", index=False)
         vue2.to_excel(writer, sheet_name="Sans_Access+_ni_Waterstation", index=False)
         vue3.to_excel(writer, sheet_name="Sans_Waterstation_<25ans", index=False)
         writer.save()
-        st.download_button(
-            "Télécharger l'export Excel combiné",
-            data=writer.path,
-            file_name="clients_sans_options.xlsx"
-        )
-
+    st.download_button(
+        "⬇️ Télécharger l'export Excel combiné",
+        data=output.getvalue(),
+        file_name="clients_sans_options.xlsx"
+    )
 else:
     st.warning("Importe un fichier pour démarrer l'analyse.")
