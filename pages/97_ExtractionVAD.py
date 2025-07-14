@@ -126,12 +126,12 @@ if uploaded_file is not None:
         vue_csv = pd.DataFrame()
         csv_name = "extraction_clients.csv"
 
-    # Export Excel combiné (toujours disponible)
+    # Export Excel combiné (noms de feuilles < 31 chars !)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        vue1.to_excel(writer, sheet_name="CDI_Sans_Access+", index=False)
-        vue2.to_excel(writer, sheet_name="CDI_Sans_Access+_ni_Waterstation", index=False)
-        vue3.to_excel(writer, sheet_name="CDI_Sans_Waterstation_<25ans", index=False)
+        vue1.to_excel(writer, sheet_name="CDI_SansAcc+", index=False)
+        vue2.to_excel(writer, sheet_name="CDI_SansAcc+_niWater", index=False)
+        vue3.to_excel(writer, sheet_name="CDI_SansWater_<25ans", index=False)
 
     st.download_button(
         "⬇️ Télécharger l'export Excel combiné",
