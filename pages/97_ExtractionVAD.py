@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 import datetime
 import io
-import base64
 
 st.set_page_config(layout="wide")
-st.title("🔍 Extraction clients sans Access+ et/ou Waterstation")
+st.title("🔍 Extraction clients : Access+, Waterstation, <25 ans")
 
 def read_csv_any_encoding_any_sep(file):
     """Lit un CSV même si le séparateur ou l'encodage sont exotiques."""
@@ -17,7 +16,6 @@ def read_csv_any_encoding_any_sep(file):
             try:
                 file.seek(0)
                 df = pd.read_csv(file, encoding=enc, sep=sep)
-                # Vérifie qu'il y a au moins 2 colonnes pour valider
                 if len(df.columns) > 1:
                     return df
             except Exception as e:
@@ -26,7 +24,7 @@ def read_csv_any_encoding_any_sep(file):
     # Si rien ne marche, on lit tout et on affiche les premières lignes brutes
     file.seek(0)
     preview = file.read(1024)
-    st.error("Impossible de lire le fichier CSV avec les encodages et séparateurs courants.")
+    st.error("Impossible de lire le fichier CSV (testé tous les encodages et séparateurs).")
     st.write("Aperçu brut du fichier :", preview)
     if last_error:
         st.write(f"Dernière erreur rencontrée : {last_error}")
@@ -53,52 +51,76 @@ def calcul_age(date_naissance):
 uploaded_file = st.file_uploader("Importer la liste des clients", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
-    # Lecture du fichier, compatible tous encodages ET tous séparateurs
-    if uploaded_file.name.endswith(".csv"):
-        df = read_csv_any_encoding_any_sep(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file)
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df = read_csv_any_encoding_any_sep(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+    except Exception as e:
+        st.error(f"Erreur lors de la lecture du fichier : {e}")
+        st.stop()
 
-    st.write("Aperçu fichier :", df.head(10))
+    st.write("Aperçu du fichier :", df.head(10))
     colonnes = df.columns.tolist()
 
-    # Sélection manuelle si besoin
-    col_type = st.selectbox("Colonne TYPE (ex: 'Type')", colonnes, index=0)
-    col_nom = st.selectbox("Colonne NOM DU CLIENT", colonnes, index=1)
-    col_abonnement = st.selectbox("Colonne ABONNEMENT (Access+/Waterstation) (U)", colonnes, index=20 if len(colonnes)>20 else -1)
-    col_naissance = st.selectbox("Colonne DATE DE NAISSANCE (F)", colonnes, index=5 if len(colonnes)>5 else -1)
+    # Sélection des colonnes utiles
+    col_nom = st.selectbox("Colonne NOM", colonnes, index=1)
+    col_prenom = st.selectbox("Colonne PRENOM", colonnes, index=2)
+    col_tel = st.selectbox("Colonne NUMÉRO DE TÉLÉPHONE", colonnes, index=3)
+    col_abonnement = st.selectbox("Colonne ABONNEMENT (Access+/Waterstation)", colonnes, index=20 if len(colonnes)>20 else -1)
+    col_naissance = st.selectbox("Colonne DATE DE NAISSANCE", colonnes, index=5 if len(colonnes)>5 else -1)
+    colonnes_export = [col_nom, col_prenom, col_tel, col_abonnement]
 
     # Masques pour options
     mask_access = ~df[col_abonnement].astype(str).str.upper().str.contains("ACCESS\+", regex=True, na=False)
     mask_water = ~df[col_abonnement].astype(str).str.upper().str.contains("WATERSTATION", regex=True, na=False)
 
-    # Vue 1 : Sans Access+
-    st.header("🛑 Clients sans Access+ (uniques)")
+    # Calcul de l'âge pour vue 3
+    try:
+        df["AGE"] = df[col_naissance].apply(calcul_age)
+    except Exception as e:
+        st.warning(f"Erreur lors du calcul de l'âge : {e}")
+        df["AGE"] = None
+
+    # Génère les vues (toujours, mais affiche une seule à la fois)
     vue1 = df[mask_access].drop_duplicates(subset=[col_nom])
-    st.dataframe(vue1, use_container_width=True)
-    st.info(f"Nombre de clients sans Access+ : **{len(vue1)}**")
-
-    # Vue 2 : Sans Access+ ni Waterstation
-    st.header("🚱 Clients sans Access+ ni Waterstation")
+    vue1 = vue1[colonnes_export]
     vue2 = df[mask_access & mask_water].drop_duplicates(subset=[col_nom])
-    st.dataframe(vue2, use_container_width=True)
-    st.info(f"Nombre de clients sans Access+ ni Waterstation : **{len(vue2)}**")
-
-    # Vue 3 : Sans Waterstation et < 25 ans
-    st.header("🎯 Clients sans Waterstation et < 25 ans")
-    df["AGE"] = df[col_naissance].apply(calcul_age)
+    vue2 = vue2[colonnes_export]
     mask_age = df["AGE"].notnull() & (df["AGE"] < 25)
     vue3 = df[mask_water & mask_age].drop_duplicates(subset=[col_nom])
-    st.dataframe(vue3, use_container_width=True)
-    st.info(f"Nombre de clients sans Waterstation et < 25 ans : **{len(vue3)}**")
+    vue3 = vue3[colonnes_export]
 
-    # Export Excel combiné
+    # Sélection de la vue à afficher
+    vue_choisie = st.radio(
+        "Choisis la vue à afficher :",
+        (
+            "🛑 Clients sans Access+ (uniques)",
+            "🚱 Clients sans Access+ ni Waterstation",
+            "🎯 Clients sans Waterstation et < 25 ans"
+        )
+    )
+
+    if vue_choisie == "🛑 Clients sans Access+ (uniques)":
+        st.header("🛑 Clients sans Access+ (uniques)")
+        st.dataframe(vue1, use_container_width=True)
+        st.info(f"Nombre de clients sans Access+ : **{len(vue1)}**")
+    elif vue_choisie == "🚱 Clients sans Access+ ni Waterstation":
+        st.header("🚱 Clients sans Access+ ni Waterstation")
+        st.dataframe(vue2, use_container_width=True)
+        st.info(f"Nombre de clients sans Access+ ni Waterstation : **{len(vue2)}**")
+    elif vue_choisie == "🎯 Clients sans Waterstation et < 25 ans":
+        st.header("🎯 Clients sans Waterstation et < 25 ans")
+        st.dataframe(vue3, use_container_width=True)
+        st.info(f"Nombre de clients sans Waterstation et < 25 ans : **{len(vue3)}**")
+
+    # Export Excel combiné (toujours disponible)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         vue1.to_excel(writer, sheet_name="Sans_Access+", index=False)
         vue2.to_excel(writer, sheet_name="Sans_Access+_ni_Waterstation", index=False)
         vue3.to_excel(writer, sheet_name="Sans_Waterstation_<25ans", index=False)
-        writer.save()
+
     st.download_button(
         "⬇️ Télécharger l'export Excel combiné",
         data=output.getvalue(),
