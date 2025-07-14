@@ -94,7 +94,8 @@ if uploaded_file is not None:
     vue2 = df_abos_cdi[mask_access & mask_water].drop_duplicates(subset=[col_nom])
     vue2 = vue2[colonnes_export]
     mask_age = df_abos_cdi["AGE"].notnull() & (df_abos_cdi["AGE"] < 25)
-    vue3 = df_abos_cdi[mask_water & mask_age].drop_duplicates(subset=[col_nom])
+    # VUE 3 : SANS ACCESS+, SANS WATERSTATION, ET <25 ans
+    vue3 = df_abos_cdi[mask_access & mask_water & mask_age].drop_duplicates(subset=[col_nom])
     vue3 = vue3[colonnes_export]
 
     # Sélection de la vue à afficher
@@ -103,7 +104,7 @@ if uploaded_file is not None:
         (
             "🛑 Clients CDI (Abonnement) sans Access+",
             "🚱 Clients CDI (Abonnement) sans Access+ ni Waterstation",
-            "🎯 Clients CDI (Abonnement) sans Waterstation et < 25 ans"
+            "🎯 Clients CDI (Abonnement) sans Access+ ni Waterstation et < 25 ans"
         )
     )
 
@@ -119,12 +120,12 @@ if uploaded_file is not None:
         st.info(f"Nombre de clients CDI (Abonnement) sans Access+ ni Waterstation : **{len(vue2)}**")
         vue_csv = vue2
         csv_name = "clients_cdi_abonnement_sans_access_plus_ni_waterstation.csv"
-    elif vue_choisie == "🎯 Clients CDI (Abonnement) sans Waterstation et < 25 ans":
-        st.header("🎯 Clients CDI (Abonnement) sans Waterstation et < 25 ans")
+    elif vue_choisie == "🎯 Clients CDI (Abonnement) sans Access+ ni Waterstation et < 25 ans":
+        st.header("🎯 Clients CDI (Abonnement) sans Access+ ni Waterstation et < 25 ans")
         st.dataframe(vue3, use_container_width=True)
-        st.info(f"Nombre de clients CDI (Abonnement) sans Waterstation et < 25 ans : **{len(vue3)}**")
+        st.info(f"Nombre de clients CDI (Abonnement) sans Access+ ni Waterstation et < 25 ans : **{len(vue3)}**")
         vue_csv = vue3
-        csv_name = "clients_cdi_abonnement_sans_waterstation_moins25ans.csv"
+        csv_name = "clients_cdi_abonnement_sans_accplus_ni_waterstation_moins25ans.csv"
     else:
         vue_csv = pd.DataFrame()
         csv_name = "extraction_clients.csv"
@@ -134,7 +135,7 @@ if uploaded_file is not None:
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         vue1.to_excel(writer, sheet_name="CDI_Abos_SansAcc+", index=False)
         vue2.to_excel(writer, sheet_name="CDI_Abos_SansAcc+_niWater", index=False)
-        vue3.to_excel(writer, sheet_name="CDI_Abos_SansWater_<25", index=False)
+        vue3.to_excel(writer, sheet_name="CDI_Abos_SansAcc+_niWtr_<25", index=False)
 
     st.download_button(
         "⬇️ Télécharger l'export Excel combiné",
