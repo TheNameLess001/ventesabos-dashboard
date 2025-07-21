@@ -53,7 +53,7 @@ def analyze_tbo(file):
         ],
         "COACHING": [
             "10PT", "15PT", "10PTPREMIUM", "1PT",
-            "DUO15PT", "20PT", "DUO10PT", "SMALLGROUP"
+            "DUO15PT", "20PT", "DUO10PT", "SMALLGROUP", "15PTPREMIUM"
         ],
         "GOODIES": [
             "CADENAS", "CEINTUREMUSCU", "cordeasauterfpk",
