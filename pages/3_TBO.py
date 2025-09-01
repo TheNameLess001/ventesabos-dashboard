@@ -46,8 +46,7 @@ def analyze_tbo(file):
         "ABONNEMENTS": [
             "CDD", "CDD1", "CDD12", "CDIAENG", "CDISENG",
             "SEANCEESSAI", "seancedessaie", "VIP", "OffreSummerBody25",
-            "ULTIMATEEMPLOYE", "HOMEPARK", "1MOFFERT", "EMPLOYE",
-            "OFFRERENTREE2025, "REGISTRATION-FEE"
+            "ULTIMATEEMPLOYE", "HOMEPARK", "1MOFFERT", "EMPLOYE", "REGISTRATION-FEE"
         ],
         "ACCESS+": [
             "ALLACCESS+", "ALLACCESS+BF", "ALLACCESS+YS-cc"
