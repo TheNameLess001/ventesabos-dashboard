@@ -1,0 +1,102 @@
+# Ce code Python génère le fichier Excel demandé
+import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.utils.dataframe import dataframe_to_rows
+import io
+
+# Création des données
+planning_data = {
+    "Date": ["08/09/2025", "08/09/2025", "08/09/2025", "08/09/2025", "08/09/2025",
+             "09/09/2025", "09/09/2025", "09/09/2025", "09/09/2025", "09/09/2025",
+             "10/09/2025", "10/09/2025", "10/09/2025", "10/09/2025",
+             "11/09/2025", "11/09/2025", "11/09/2025", "11/09/2025",
+             "12/09/2025", "12/09/2025", "12/09/2025", "12/09/2025", "12/09/2025",
+             "13/09/2025", "13/09/2025", "13/09/2025",
+             "14/09/2025", "14/09/2025", "14/09/2025", "14/09/2025"],
+    "Jour": ["Lundi", "Lundi", "Lundi", "Lundi", "Lundi",
+             "Mardi", "Mardi", "Mardi", "Mardi", "Mardi",
+             "Mercredi", "Mercredi", "Mercredi", "Mercredi",
+             "Jeudi", "Jeudi", "Jeudi", "Jeudi",
+             "Vendredi", "Vendredi", "Vendredi", "Vendredi", "Vendredi",
+             "Samedi", "Samedi", "Samedi",
+             "Dimanche", "Dimanche", "Dimanche", "Dimanche"],
+    "Nom": ["Al Kouhail Ali", "JAMYL THOURIYA", "BOUNOIR SAIF-EDDINE", "EL BOUHALI HIBA", "Boufsad Hamid",
+            "JAMYL THOURIYA", "EL BOUHALI HIBA", "Al Kouhail Ali", "Boufsad Hamid", "BOUNOIR SAIF-EDDINE",
+            "EL BOUHALI HIBA", "JAMYL THOURIYA", "BOUNOIR SAIF-EDDINE", "Boufsad Hamid",
+            "Al Kouhail Ali", "Boufsad Hamid", "BOUNOIR SAIF-EDDINE", "JAMYL THOURIYA",
+            "Boufsad Hamid", "Al Kouhail Ali", "BOUNOIR SAIF-EDDINE", "EL BOUHALI HIBA", "JAMYL THOURIYA",
+            "EL BOUHALI HIBA", "Al Kouhail Ali", "JAMYL THOURIYA",
+            "Boufsad Hamid", "Al Kouhail Ali", "BOUNOIR SAIF-EDDINE", "EL BOUHALI HIBA"],
+    "Début": ["07:00", "11:00", "11:00", "14:00", "14:00",
+              "07:00", "11:00", "14:00", "14:00", "14:00",
+              "07:00", "11:00", "13:00", "14:00",
+              "07:00", "11:00", "11:00", "14:00",
+              "07:00", "11:00", "11:00", "14:00", "14:00",
+              "07:00", "11:00", "14:00",
+              "06:00", "10:00", "11:00", "14:00"],
+    "Fin": ["15:00", "20:00", "20:00", "23:00", "23:00",
+            "16:00", "20:00", "23:00", "23:00", "23:00",
+            "16:00", "20:00", "22:00", "23:00",
+            "16:00", "20:00", "20:00", "23:00",
+            "11:00", "16:00", "20:00", "23:00", "23:00",
+            "11:00", "20:00", "23:00",
+            "10:00", "20:00", "15:00", "23:00"],
+    "Pause": [60, 60, 60, 60, 60,
+              60, 60, 60, 60, 60,
+              60, 60, 60, 60,
+              60, 60, 60, 60,
+              0, 60, 60, 60, 60,
+              0, 60, 60,
+              0, 120, 0, 60],
+    "Fonction": ["Commercial", "Commercial", "Responsable", "Commercial", "Commercial",
+                 "Commercial", "Commercial", "Commercial", "Commercial", "Responsable",
+                 "Commercial", "Commercial", "Responsable", "Commercial",
+                 "Commercial", "Commercial", "Responsable", "Commercial",
+                 "Commercial", "Commercial", "Responsable", "Commercial", "Commercial",
+                 "Commercial", "Commercial", "Commercial",
+                 "Commercial", "Commercial", "Responsable", "Commercial"]
+}
+
+# Création du DataFrame
+df = pd.DataFrame(planning_data)
+
+# Création d'un nouveau classeur Excel
+wb = Workbook()
+ws = wb.active
+ws.title = "Planning Hebdomadaire"
+
+# Ajout des données
+for r in dataframe_to_rows(df, index=False, header=True):
+    ws.append(r)
+
+# Mise en forme
+header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+header_font = Font(color="FFFFFF", bold=True)
+border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+# Application de la mise en forme aux en-têtes
+for cell in ws[1]:
+    cell.fill = header_fill
+    cell.font = header_font
+    cell.border = border
+    cell.alignment = Alignment(horizontal="center")
+
+# Application des bordures à toutes les cellules
+for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+    for cell in row:
+        cell.border = border
+
+# Ajustement de la largeur des colonnes
+for column in ws.columns:
+    max_length = 0
+    column_letter = column[0].column_letter
+    for cell in column:
+        if len(str(cell.value)) > max_length:
+            max_length = len(str(cell.value))
+    adjusted_width = (max_length + 2)
+    ws.column_dimensions[column_letter].width = adjusted_width
+
+# Sauvegarde du fichier
+wb.save("planning_commercial_casablanca.xlsx")
+print("Fichier Excel créé avec succès: planning_commercial_casablanca.xlsx")
